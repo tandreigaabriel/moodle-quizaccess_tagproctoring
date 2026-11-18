@@ -1,0 +1,405 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
+    @package    quizaccess_tagproctoring
+    @copyright  2026 Andrei Toma <https://www.tandreig.com>
+    @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+}}
+{{!
+    @template quizaccess_tagproctoring/wizard
+
+    Pre-exam proctoring wizard: rules, room scan, selfie, ID photo, screen share.
+    All content is static HTML; interactive state is managed entirely by JavaScript.
+
+    @package    quizaccess_tagproctoring
+    @copyright  2026 Andrei Toma <https://www.tandreig.com>
+    @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+
+    Example context (json):
+    {
+    }
+}}
+<div class="tagwiz-wrap tagwiz-wrap--guided" id="tagwiz-wrap" style="display:none">
+
+  <div class="tagwiz-hero">
+    <div class="tagwiz-hero-icon">TAG</div>
+    <div>
+      <div class="tagwiz-hero-title">{{#str}} wizard_hero_title, quizaccess_tagproctoring {{/str}}</div>
+      <div class="tagwiz-hero-sub">{{#str}} wizard_hero_sub, quizaccess_tagproctoring {{/str}}</div>
+    </div>
+  </div>
+
+  <div class="tagwiz-bar">
+    <div class="tagwiz-ind tagwiz-ind--active" id="tagwiz-ind-0">
+      <div class="tagwiz-ind-circle">
+        <span class="tagwiz-ind-num">1</span>
+        <span class="tagwiz-ind-icon"></span>
+      </div>
+      <div class="tagwiz-ind-label">{{#str}} wizard_step_rules, quizaccess_tagproctoring {{/str}}</div>
+    </div>
+    <div class="tagwiz-connector" id="tagwiz-conn-0"></div>
+
+    <div class="tagwiz-ind" id="tagwiz-ind-1">
+      <div class="tagwiz-ind-circle">
+        <span class="tagwiz-ind-num">2</span>
+        <span class="tagwiz-ind-icon"></span>
+      </div>
+      <div class="tagwiz-ind-label">{{#str}} wizard_step_roomscan, quizaccess_tagproctoring {{/str}}</div>
+    </div>
+    <div class="tagwiz-connector" id="tagwiz-conn-1"></div>
+
+    <div class="tagwiz-ind" id="tagwiz-ind-2">
+      <div class="tagwiz-ind-circle">
+        <span class="tagwiz-ind-num">3</span>
+        <span class="tagwiz-ind-icon"></span>
+      </div>
+      <div class="tagwiz-ind-label">{{#str}} wizard_step_selfie, quizaccess_tagproctoring {{/str}}</div>
+    </div>
+    <div class="tagwiz-connector" id="tagwiz-conn-2"></div>
+
+    <div class="tagwiz-ind" id="tagwiz-ind-3">
+      <div class="tagwiz-ind-circle">
+        <span class="tagwiz-ind-num">4</span>
+        <span class="tagwiz-ind-icon"></span>
+      </div>
+      <div class="tagwiz-ind-label">{{#str}} wizard_step_idphoto, quizaccess_tagproctoring {{/str}}</div>
+    </div>
+    <div class="tagwiz-connector" id="tagwiz-conn-3"></div>
+
+    <div class="tagwiz-ind" id="tagwiz-ind-4">
+      <div class="tagwiz-ind-circle">
+        <span class="tagwiz-ind-num">5</span>
+        <span class="tagwiz-ind-icon"></span>
+      </div>
+      <div class="tagwiz-ind-label">{{#str}} wizard_step_screen, quizaccess_tagproctoring {{/str}}</div>
+    </div>
+  </div>
+
+  <div id="tagwiz-step-0" class="tagwiz-card">
+    <div class="tagwiz-card-header">
+      <div class="tagwiz-badge tagwiz-badge--rules">01</div>
+      <div>
+        <h4 class="tagwiz-title">{{#str}} wizard_step0_title, quizaccess_tagproctoring {{/str}}</h4>
+        <p class="tagwiz-subtitle">{{#str}} wizard_step0_sub, quizaccess_tagproctoring {{/str}}</p>
+      </div>
+    </div>
+    <div class="tagwiz-card-body">
+
+      <div id="tagwiz-rule-slides">
+
+        <div class="tagwiz-rule-slide" id="tagwiz-rule-slide-0">
+          <div class="tagwiz-rule-slide-label">{{#str}} wizard_slide0_label, quizaccess_tagproctoring {{/str}}</div>
+          <h3 class="tagwiz-rule-slide-heading">{{#str}} wizard_slide0_heading, quizaccess_tagproctoring {{/str}}</h3>
+          <p class="tagwiz-rule-slide-sub">{{#str}} wizard_slide0_sub, quizaccess_tagproctoring {{/str}}</p>
+        </div>
+
+        <div class="tagwiz-rule-slide" id="tagwiz-rule-slide-1" style="display:none">
+          <div class="tagwiz-rule-slide-label">{{#str}} wizard_slide1_label, quizaccess_tagproctoring {{/str}}</div>
+          <h3 class="tagwiz-rule-slide-heading">{{#str}} wizard_slide1_heading, quizaccess_tagproctoring {{/str}}</h3>
+          <p class="tagwiz-rule-slide-sub">{{#str}} wizard_slide1_sub, quizaccess_tagproctoring {{/str}}</p>
+        </div>
+
+        <div class="tagwiz-rule-slide" id="tagwiz-rule-slide-2" style="display:none">
+          <div class="tagwiz-rule-slide-label">{{#str}} wizard_slide2_label, quizaccess_tagproctoring {{/str}}</div>
+          <h3 class="tagwiz-rule-slide-heading">{{#str}} wizard_slide2_heading, quizaccess_tagproctoring {{/str}}</h3>
+          <p class="tagwiz-rule-slide-sub">{{#str}} wizard_slide2_sub, quizaccess_tagproctoring {{/str}}</p>
+        </div>
+
+        <div class="tagwiz-rule-slide" id="tagwiz-rule-slide-3" style="display:none">
+          <div class="tagwiz-rule-slide-label">{{#str}} wizard_slide3_label, quizaccess_tagproctoring {{/str}}</div>
+          <h3 class="tagwiz-rule-slide-heading">{{#str}} wizard_slide3_heading, quizaccess_tagproctoring {{/str}}</h3>
+          <p class="tagwiz-rule-slide-sub">{{#str}} wizard_slide3_sub, quizaccess_tagproctoring {{/str}}</p>
+        </div>
+
+        <div class="tagwiz-rule-slide" id="tagwiz-rule-slide-4" style="display:none">
+          <div class="tagwiz-rule-slide-label">{{#str}} wizard_slide4_label, quizaccess_tagproctoring {{/str}}</div>
+          <h3 class="tagwiz-rule-slide-heading">{{#str}} wizard_slide4_heading, quizaccess_tagproctoring {{/str}}</h3>
+          <p class="tagwiz-rule-slide-sub">{{#str}} wizard_slide4_sub, quizaccess_tagproctoring {{/str}}</p>
+        </div>
+
+        <div class="tagwiz-rule-slide" id="tagwiz-rule-slide-5" style="display:none">
+          <div class="tagwiz-rule-slide-label">{{#str}} wizard_slide5_label, quizaccess_tagproctoring {{/str}}</div>
+          <h3 class="tagwiz-rule-slide-heading">{{#str}} wizard_slide5_heading, quizaccess_tagproctoring {{/str}}</h3>
+          <p class="tagwiz-rule-slide-sub">{{#str}} wizard_slide5_sub, quizaccess_tagproctoring {{/str}}</p>
+        </div>
+
+        <div class="tagwiz-rule-slide" id="tagwiz-rule-slide-6" style="display:none">
+          <div class="tagwiz-rule-slide-label">{{#str}} wizard_slide6_label, quizaccess_tagproctoring {{/str}}</div>
+          <h3 class="tagwiz-rule-slide-heading">{{#str}} wizard_slide6_heading, quizaccess_tagproctoring {{/str}}</h3>
+          <p class="tagwiz-rule-slide-sub">{{#str}} wizard_slide6_sub, quizaccess_tagproctoring {{/str}}</p>
+        </div>
+
+        <div class="tagwiz-rule-slide" id="tagwiz-rule-slide-7" style="display:none">
+          <div class="tagwiz-rule-slide-label">{{#str}} wizard_slide7_label, quizaccess_tagproctoring {{/str}}</div>
+          <h3 class="tagwiz-rule-slide-heading">{{#str}} wizard_slide7_heading, quizaccess_tagproctoring {{/str}}</h3>
+          <p class="tagwiz-rule-slide-sub">{{#str}} wizard_slide7_sub, quizaccess_tagproctoring {{/str}}</p>
+        </div>
+
+        <div class="tagwiz-rule-slide" id="tagwiz-rule-slide-8" style="display:none">
+          <div class="tagwiz-rule-slide-label">{{#str}} wizard_slide8_label, quizaccess_tagproctoring {{/str}}</div>
+          <h3 class="tagwiz-rule-slide-heading">{{#str}} wizard_slide8_heading, quizaccess_tagproctoring {{/str}}</h3>
+          <p class="tagwiz-rule-slide-sub">{{#str}} wizard_slide8_sub, quizaccess_tagproctoring {{/str}}</p>
+        </div>
+
+        <div class="tagwiz-rule-slide tagwiz-rule-slide--consent" id="tagwiz-rule-slide-9" style="display:none">
+          <div class="tagwiz-rule-slide-label">{{#str}} wizard_slide9_label, quizaccess_tagproctoring {{/str}}</div>
+          <h3 class="tagwiz-rule-slide-heading">{{#str}} wizard_slide9_heading, quizaccess_tagproctoring {{/str}}</h3>
+          <p class="tagwiz-rule-slide-sub">{{#str}} wizard_slide9_sub, quizaccess_tagproctoring {{/str}}</p>
+          <div class="tagwiz-rule-consent-warn">
+            {{#str}} wizard_consent_warn, quizaccess_tagproctoring {{/str}}
+          </div>
+        </div>
+
+      </div>
+
+      <div class="tagwiz-rule-nav">
+        <span class="tagwiz-rule-counter" id="tagwiz-rule-counter">{{#str}}wizard_rule_counter, quizaccess_tagproctoring, {"current":1,"total":10}{{/str}}</span>
+        <div class="tagwiz-rule-progress-bar">
+          <div class="tagwiz-rule-progress-fill" id="tagwiz-rule-progress-fill" style="width:10%"></div>
+        </div>
+      </div>
+
+      <div class="tagwiz-actions">
+        <button type="button" class="tagwiz-btn tagwiz-btn--primary" id="tagwiz-rules-next">
+          {{#str}} wizard_btn_next, quizaccess_tagproctoring {{/str}} →
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="tagwiz-step-1" class="tagwiz-card" style="display:none">
+    <div class="tagwiz-card-header">
+      <div class="tagwiz-badge tagwiz-badge--scan">02</div>
+      <div>
+        <h4 class="tagwiz-title">{{#str}} wizard_step1_title, quizaccess_tagproctoring {{/str}}</h4>
+        <p class="tagwiz-subtitle">{{#str}} wizard_step1_sub, quizaccess_tagproctoring {{/str}}</p>
+      </div>
+    </div>
+    <div class="tagwiz-card-body">
+      <div class="tagwiz-room-intro">
+        {{#str}} wizard_roomscan_intro, quizaccess_tagproctoring {{/str}}
+      </div>
+      <div class="tagwiz-grid">
+        <div>
+          <div class="tagwiz-video-wrap">
+            <video id="tagwiz-rs-video" autoplay muted playsinline></video>
+            <div class="tagwiz-overlay">
+              <div class="tagwiz-overlay-inner">
+                <span class="tagwiz-dot" id="tagwiz-rs-dot"></span>
+                <span class="tagwiz-overlay-status" id="tagwiz-rs-status"></span>
+                <span class="tagwiz-overlay-timer" id="tagwiz-rs-timer"></span>
+              </div>
+            </div>
+          </div>
+          <div class="tagwiz-cam-actions">
+            <button type="button" class="tagwiz-btn tagwiz-btn--record" id="tagwiz-rs-start">
+              {{#str}} wizard_btn_start_scan, quizaccess_tagproctoring {{/str}}
+            </button>
+            <button type="button" class="tagwiz-btn tagwiz-btn--next" id="tagwiz-rs-next" disabled>
+              {{#str}} wizard_btn_next_step, quizaccess_tagproctoring {{/str}}
+            </button>
+          </div>
+        </div>
+
+        <div class="tagwiz-info-col">
+          <p class="tagwiz-section-title">{{#str}} wizard_scan_checklist_title, quizaccess_tagproctoring {{/str}}</p>
+          <ul class="tagwiz-list">
+            <li>{{#str}} wizard_scan_checklist_1, quizaccess_tagproctoring {{/str}}</li>
+            <li>{{#str}} wizard_scan_checklist_2, quizaccess_tagproctoring {{/str}}</li>
+            <li>{{#str}} wizard_scan_checklist_3, quizaccess_tagproctoring {{/str}}</li>
+            <li>{{#str}} wizard_scan_checklist_4, quizaccess_tagproctoring {{/str}}</li>
+            <li>{{#str}} wizard_scan_checklist_5, quizaccess_tagproctoring {{/str}}</li>
+          </ul>
+          <div id="tagwiz-rs-success" style="display:none" class="tagwiz-success">
+            {{#str}} wizard_scan_success, quizaccess_tagproctoring {{/str}}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tagwiz-step-2" class="tagwiz-card" style="display:none">
+    <div class="tagwiz-card-header">
+      <div class="tagwiz-badge tagwiz-badge--selfie">03</div>
+      <div>
+        <h4 class="tagwiz-title">{{#str}} wizard_step2_title, quizaccess_tagproctoring {{/str}}</h4>
+        <p class="tagwiz-subtitle">{{#str}} wizard_step2_sub, quizaccess_tagproctoring {{/str}}</p>
+      </div>
+    </div>
+    <div class="tagwiz-card-body">
+      <div class="tagwiz-grid">
+        <div>
+          <div class="tagwiz-video-wrap tagwiz-video-wrap--selfie" style="position:relative;overflow:hidden;">
+            <video id="tagwiz-selfie-video" autoplay muted playsinline
+              style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;pointer-events:none;"></video>
+            <canvas id="tagwiz-selfie-canvas" style="display:block;width:100%;height:100%;"></canvas>
+            <div class="tagwiz-selfie-guide"></div>
+            <div id="tagwiz-selfie-countdown" class="tagwiz-selfie-countdown" style="display:none">3</div>
+          </div>
+          <div id="tagwiz-selfie-preview-wrap" style="display:none" class="tagwiz-preview-wrap">
+            <img id="tagwiz-selfie-preview" class="tagwiz-preview-img" alt="{{#str}} wizard_selfie_preview, quizaccess_tagproctoring {{/str}}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+            <div class="tagwiz-preview-badge">{{#str}} wizard_captured, quizaccess_tagproctoring {{/str}}</div>
+          </div>
+          <p id="tagwiz-selfie-status" class="tagwiz-status-msg"></p>
+          <div class="tagwiz-cam-actions">
+            <button type="button" class="tagwiz-btn tagwiz-btn--capture tagwiz-btn--camera" id="tagwiz-selfie-capture" aria-label="{{#str}} wizard_btn_take_photo, quizaccess_tagproctoring {{/str}}">
+              <span aria-hidden="true">{{#str}}wizard_camera_symbol, quizaccess_tagproctoring{{/str}}</span>
+            </button>
+            <button type="button" class="tagwiz-btn tagwiz-btn--retake" id="tagwiz-selfie-retake" style="display:none">
+              {{#str}} wizard_btn_retake, quizaccess_tagproctoring {{/str}}
+            </button>
+            <button type="button" class="tagwiz-btn tagwiz-btn--next" id="tagwiz-selfie-next" disabled>
+              {{#str}} wizard_btn_next_step, quizaccess_tagproctoring {{/str}}
+            </button>
+          </div>
+        </div>
+
+        <div class="tagwiz-info-col">
+          <p class="tagwiz-section-title">{{#str}} wizard_selfie_checklist_title, quizaccess_tagproctoring {{/str}}</p>
+          <ul class="tagwiz-list">
+            <li>{{#str}} wizard_selfie_checklist_1, quizaccess_tagproctoring {{/str}}</li>
+            <li>{{#str}} wizard_selfie_checklist_2, quizaccess_tagproctoring {{/str}}</li>
+            <li>{{#str}} wizard_selfie_checklist_3, quizaccess_tagproctoring {{/str}}</li>
+            <li>{{#str}} wizard_selfie_checklist_4, quizaccess_tagproctoring {{/str}}</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tagwiz-step-3" class="tagwiz-card" style="display:none">
+    <div class="tagwiz-card-header">
+      <div class="tagwiz-badge tagwiz-badge--id">04</div>
+      <div>
+        <h4 class="tagwiz-title">{{#str}} wizard_step3_title, quizaccess_tagproctoring {{/str}}</h4>
+        <p class="tagwiz-subtitle">{{#str}} wizard_step3_sub, quizaccess_tagproctoring {{/str}}</p>
+      </div>
+    </div>
+    <div class="tagwiz-card-body">
+      <div class="tagwiz-grid">
+        <div>
+          <div class="tagwiz-video-wrap tagwiz-video-wrap--id">
+            <video id="tagwiz-id-video" autoplay muted playsinline></video>
+            <div id="tagwiz-id-countdown" class="tagwiz-id-countdown" style="display:none">3</div>
+            <div id="tagwiz-id-guide" class="tagwiz-id-guide">
+              <span id="tagwiz-id-guide-label" class="tagwiz-id-guide-label">{{#str}} wizard_id_guide_label, quizaccess_tagproctoring {{/str}}</span>
+            </div>
+          </div>
+          <div id="tagwiz-id-preview-wrap" style="display:none" class="tagwiz-preview-wrap">
+            <img id="tagwiz-id-preview" class="tagwiz-preview-img" alt="{{#str}} wizard_id_preview, quizaccess_tagproctoring {{/str}}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+            <div class="tagwiz-preview-badge">{{#str}} wizard_captured, quizaccess_tagproctoring {{/str}}</div>
+          </div>
+          <p id="tagwiz-id-status" class="tagwiz-status-msg"></p>
+          <div class="tagwiz-cam-actions">
+            <button type="button" class="tagwiz-btn tagwiz-btn--capture tagwiz-btn--camera" id="tagwiz-id-capture" aria-label="{{#str}} wizard_btn_take_id_photo, quizaccess_tagproctoring {{/str}}">
+              <span aria-hidden="true">{{#str}}wizard_camera_symbol, quizaccess_tagproctoring{{/str}}</span>
+            </button>
+            <button type="button" class="tagwiz-btn tagwiz-btn--retake" id="tagwiz-id-retake" style="display:none">
+              {{#str}} wizard_btn_retake, quizaccess_tagproctoring {{/str}}
+            </button>
+            <button type="button" class="tagwiz-btn tagwiz-btn--next" id="tagwiz-id-next" disabled>
+              {{#str}} wizard_btn_next_step, quizaccess_tagproctoring {{/str}}
+            </button>
+          </div>
+        </div>
+
+        <div class="tagwiz-info-col">
+          <p class="tagwiz-section-title">{{#str}} wizard_id_checklist_title, quizaccess_tagproctoring {{/str}}</p>
+          <ul class="tagwiz-list">
+            <li>{{#str}} wizard_id_checklist_1, quizaccess_tagproctoring {{/str}}</li>
+            <li>{{#str}} wizard_id_checklist_2, quizaccess_tagproctoring {{/str}}</li>
+            <li>{{#str}} wizard_id_checklist_3, quizaccess_tagproctoring {{/str}}</li>
+          </ul>
+          <div class="tagwiz-id-tip">
+            {{#str}} wizard_id_tip, quizaccess_tagproctoring {{/str}}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tagwiz-step-4" class="tagwiz-card" style="display:none">
+    <div class="tagwiz-card-header">
+      <div class="tagwiz-badge tagwiz-badge--screen">05</div>
+      <div>
+        <h4 class="tagwiz-title">{{#str}} wizard_step4_title, quizaccess_tagproctoring {{/str}}</h4>
+        <p class="tagwiz-subtitle">{{#str}} wizard_step4_sub, quizaccess_tagproctoring {{/str}}</p>
+      </div>
+    </div>
+    <div class="tagwiz-card-body">
+      <div class="tagwiz-ss-center">
+        <div id="tagwiz-ss-before" class="tagwiz-ss-before">
+          <p class="tagwiz-ss-before-title">{{#str}} wizard_ss_before_title, quizaccess_tagproctoring {{/str}}</p>
+          <div class="tagwiz-ss-guide">
+            <div class="tagwiz-ss-guide-step">
+              <span class="tagwiz-ss-guide-num">1</span>
+              <div class="tagwiz-ss-guide-text">
+                {{#str}} wizard_ss_guide_step1, quizaccess_tagproctoring {{/str}}
+                <span class="tagwiz-ss-guide-warn">{{#str}} wizard_ss_guide_step1_warn, quizaccess_tagproctoring {{/str}}</span>
+              </div>
+            </div>
+            <div class="tagwiz-ss-guide-step">
+              <span class="tagwiz-ss-guide-num">2</span>
+              <div class="tagwiz-ss-guide-text">{{#str}} wizard_ss_guide_step2, quizaccess_tagproctoring {{/str}}</div>
+            </div>
+            <div class="tagwiz-ss-guide-step">
+              <span class="tagwiz-ss-guide-num">3</span>
+              <div class="tagwiz-ss-guide-text">{{#str}} wizard_ss_guide_step3, quizaccess_tagproctoring {{/str}}</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="tagwiz-ss-multimon" class="tagwiz-ss-multimon" style="display:none">
+          <div class="tagwiz-ss-multimon-header">
+            <span class="tagwiz-ss-multimon-icon">!</span>
+            <strong>{{#str}} wizard_ss_multimon_header, quizaccess_tagproctoring {{/str}}</strong>
+          </div>
+          <p class="tagwiz-ss-multimon-desc">
+            {{#str}} wizard_ss_multimon_desc, quizaccess_tagproctoring {{/str}}
+          </p>
+          <button type="button" class="tagwiz-btn tagwiz-btn--recheck" id="tagwiz-ss-recheck">
+            {{#str}} wizard_btn_recheck, quizaccess_tagproctoring {{/str}}
+          </button>
+        </div>
+
+        <p id="tagwiz-ss-status" class="tagwiz-status-msg"></p>
+
+        <div id="tagwiz-checklist" class="tagwiz-checklist" style="display:none">
+          <div class="tagwiz-checklist-title">{{#str}} wizard_checklist_title, quizaccess_tagproctoring {{/str}}</div>
+          <ul class="tagwiz-checklist-list">
+            <li><span class="tagwiz-chk-mark">&#x2713;</span> {{#str}} wizard_chk_rules, quizaccess_tagproctoring {{/str}}</li>
+            <li id="tagwiz-chk-scan"><span class="tagwiz-chk-mark">&#x2713;</span> {{#str}} wizard_chk_scan, quizaccess_tagproctoring {{/str}}</li>
+            <li><span class="tagwiz-chk-mark">&#x2713;</span> {{#str}} wizard_chk_selfie, quizaccess_tagproctoring {{/str}}</li>
+            <li><span class="tagwiz-chk-mark">&#x2713;</span> {{#str}} wizard_chk_idphoto, quizaccess_tagproctoring {{/str}}</li>
+            <li><span class="tagwiz-chk-mark">&#x2713;</span> {{#str}} wizard_chk_screenshare, quizaccess_tagproctoring {{/str}}</li>
+            <li><span class="tagwiz-chk-mark">&#x2713;</span> {{#str}} wizard_chk_fullscreen, quizaccess_tagproctoring {{/str}}</li>
+          </ul>
+          <button type="button" class="tagwiz-btn tagwiz-btn--start" id="tagwiz-start-quiz">
+            {{#str}} wizard_btn_start_exam, quizaccess_tagproctoring {{/str}}
+          </button>
+        </div>
+
+        <div class="tagwiz-ss-actions" style="display:none">
+          <button type="button" class="tagwiz-btn tagwiz-btn--share tagwiz-btn--round" id="tagwiz-ss-share" aria-label="{{#str}} wizard_btn_share_screen, quizaccess_tagproctoring {{/str}}">
+            <span aria-hidden="true">&rsaquo;</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

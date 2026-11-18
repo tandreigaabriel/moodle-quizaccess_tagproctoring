@@ -1,0 +1,344 @@
+<?php
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
+/**
+ * TAG Proctoring Report Page
+ *
+ * Displays proctoring data, events, screenshots and risk analysis
+ * for quiz attempts.
+ *
+ * @package    quizaccess_tagproctoring
+ * @copyright  2026 Andrei Toma <https://www.tandreig.com>
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+require_once(__DIR__ . '/../../../../config.php');
+require_once($CFG->dirroot . '/mod/quiz/accessrule/tagproctoring/lib.php');
+
+if (class_exists('mod_quiz\quiz_settings')) {
+    class_alias('\mod_quiz\quiz_settings', '\tagproctoring_quiz_settings_alias');
+} else {
+    require_once($CFG->dirroot . '/mod/quiz/locallib.php');
+    class_alias('\quiz', '\tagproctoring_quiz_settings_alias');
+}
+if (class_exists('mod_quiz\quiz_attempt')) {
+    class_alias('mod_quiz\quiz_attempt', '\tagproctoring_quiz_attempt_alias');
+} else {
+    require_once($CFG->dirroot . '/mod/quiz/locallib.php');
+    class_alias('\quiz_attempt', '\tagproctoring_quiz_attempt_alias');
+}
+
+$cid = required_param('cid', PARAM_INT);
+$cmid = required_param('cmid', PARAM_INT);
+$qid = required_param('qid', PARAM_INT);
+
+$cm = \quizaccess_tagproctoring\local\request_guard::quiz_module($qid, $cmid, $cid);
+[$course, $cm] = get_course_and_cm_from_cmid($cm->id, 'quiz');
+$context = context_module::instance($cm->id, MUST_EXIST);
+
+$PAGE->set_context($context);
+$PAGE->set_cm($cm, $course);
+
+require_login($course, true, $cm);
+require_capability('quizaccess/tagproctoring:viewreport', $context);
+
+$quizobj = tagproctoring_quiz_settings_alias::create($qid);
+$quiz = $quizobj->get_quiz();
+$reporturl = quizaccess_tagproctoring_get_report_url($cid, $cmid, $qid);
+
+$PAGE->set_url($reporturl);
+$PAGE->set_pagelayout('report');
+$PAGE->set_title($course->shortname . ': ' . get_string('pluginname', 'quizaccess_tagproctoring'));
+$PAGE->set_heading($course->fullname . ': ' . get_string('pluginname', 'quizaccess_tagproctoring'));
+$PAGE->navbar->add(get_string('report_link_label', 'quizaccess_tagproctoring'), $reporturl);
+$PAGE->requires->css(new moodle_url('/mod/quiz/accessrule/tagproctoring/styles.css'));
+
+global $DB;
+
+// Load all finished attempts.
+$attempts = $DB->get_records_sql(
+    "SELECT a.id, a.userid, a.attempt, a.sumgrades, a.timestart, a.timefinish,
+            u.firstname, u.lastname, u.email
+       FROM {quiz_attempts} a
+       JOIN {user} u ON u.id = a.userid
+      WHERE a.quiz = :quizid AND a.state = :state AND a.preview = 0
+      ORDER BY u.lastname ASC, u.firstname ASC, a.attempt ASC",
+    ['quizid' => $quiz->id, 'state' => \tagproctoring_quiz_attempt_alias::FINISHED]
+);
+
+echo $OUTPUT->header();
+
+if (!$attempts) {
+    echo html_writer::div(
+        html_writer::tag(
+            'p',
+            get_string('report_no_attempts', 'quizaccess_tagproctoring'),
+            ['class' => 'text-muted text-center mt-5']
+        ),
+        'container-fluid'
+    );
+    echo $OUTPUT->footer();
+    exit;
+}
+
+// Bulk-load events, screenshots, scans.
+$attemptids = array_column((array) $attempts, 'id', 'id');
+
+$eventsbyattempt = [];
+$shotsbyattempt = [];
+
+if ($attemptids) {
+    [$insql, $inparams] = $DB->get_in_or_equal(array_values($attemptids));
+
+    $eventrecords = $DB->get_records_select(
+        'quizaccess_tagproctoring_events',
+        "attemptid $insql",
+        $inparams,
+        'timecreated ASC'
+    );
+
+    foreach ($eventrecords as $e) {
+        $eventsbyattempt[$e->attemptid][] = $e;
+    }
+
+    $shotrecords = $DB->get_records_select(
+        'quizaccess_tagproctoring_screenshots',
+        "attemptid $insql",
+        $inparams,
+        'timecreated ASC'
+    );
+
+    foreach ($shotrecords as $s) {
+        $shotsbyattempt[$s->attemptid][] = $s;
+    }
+}
+
+$scansbyuser = [];
+foreach ($DB->get_records('quizaccess_tagproctoring_scan', ['quizid' => $quiz->id]) as $scan) {
+    $scansbyuser[$scan->userid] = $scan;
+}
+
+$overridesbyattempt = [];
+$reviewedbyattempt  = [];
+if ($attemptids) {
+    [$insql2, $inparams2] = $DB->get_in_or_equal(array_values($attemptids));
+
+    foreach ($DB->get_records_select('quizaccess_tagproctoring_overrides', "attemptid $insql2", $inparams2) as $ov) {
+        $overridesbyattempt[(int) $ov->attemptid] = (bool) $ov->valid_override;
+        $reviewedbyattempt[(int) $ov->attemptid]  = !empty($ov->reviewed);
+    }
+}
+
+$setoverrideurl  = (new moodle_url('/mod/quiz/accessrule/tagproctoring/set_override.php'))->out(false);
+$deleteshotsurl  = (new moodle_url('/mod/quiz/accessrule/tagproctoring/delete_screenshots.php'))->out(false);
+$deleteeventsurl = (new moodle_url('/mod/quiz/accessrule/tagproctoring/delete_events.php'))->out(false);
+$setreviewedurl  = (new moodle_url('/mod/quiz/accessrule/tagproctoring/set_reviewed.php'))->out(false);
+$setidentityurl  = (new moodle_url('/mod/quiz/accessrule/tagproctoring/set_identity.php'))->out(false);
+$grantrescanurl  = (new moodle_url('/mod/quiz/accessrule/tagproctoring/grant_rescan.php'))->out(false);
+$deletescanbase = (new moodle_url(
+    '/mod/quiz/accessrule/tagproctoring/confirm_delete_scan.php',
+    ['cid' => $cid, 'cmid' => $cmid, 'qid' => $qid]
+))->out(false);
+
+$reportsesskey = sesskey();
+
+// Risk mapping from lib.php vocabulary to report.js vocabulary.
+$riskmap = ['high' => 'invalid', 'medium' => 'review', 'low' => 'valid'];
+
+/**
+ * Build a pluginfile URL for a proctoring file area.
+ *
+ * @param context $ctx      Module context.
+ * @param string  $area     File area (roomscan, selfie, idphoto, screenshots).
+ * @param int     $itemid   User ID used as the pluginfile item ID.
+ * @param string  $filename File name within the area.
+ * @return string Absolute URL string, or empty string when filename is empty.
+ */
+function quizaccess_tagproctoring_pluginfile_url(context $ctx, string $area, int $itemid, string $filename): string {
+    if (!$filename) {
+        return '';
+    }
+
+    return moodle_url::make_pluginfile_url(
+        $ctx->id,
+        'quizaccess_tagproctoring',
+        $area,
+        $itemid,
+        '/',
+        $filename
+    )->out();
+}
+
+$studentsdata = [];
+
+foreach ($attempts as $attempt) {
+    $uid = (int) $attempt->userid;
+
+    $events = $eventsbyattempt[$attempt->id] ?? [];
+    $shots  = $shotsbyattempt[$attempt->id] ?? [];
+    $scan   = $scansbyuser[$uid] ?? null;
+
+    $eventcounts = [];
+    foreach ($events as $e) {
+        $eventcounts[$e->eventtype] = ($eventcounts[$e->eventtype] ?? 0) + 1;
+    }
+    $scansuspicious = $scan && !empty($scan->scan_suspicious);
+    $facematch      = ($scan && isset($scan->face_match_verified)) ? (int) $scan->face_match_verified : null;
+    $risk           = quizaccess_tagproctoring_calculate_attempt_risk($eventcounts, $scansuspicious, $facematch);
+    $risklevel      = $riskmap[$risk['risk']] ?? 'valid';
+
+    $shotlist = [];
+
+    foreach ($shots as $s) {
+        // Use stored source column; fall back to filename prefix for older rows.
+        if (!empty($s->source)) {
+            $src = $s->source;
+        } else {
+            $src = (strpos($s->filename, 'screen_') === 0) ? 'screen' : 'webcam';
+        }
+
+        $shotlist[] = [
+        'url' => quizaccess_tagproctoring_pluginfile_url($context, 'screenshots', $s->userid, $s->filename),
+        'time' => (int) $s->timecreated,
+        'source' => $src,
+        ];
+    }
+
+    $eventlist = [];
+
+    foreach ($events as $e) {
+        $eventlist[] = [
+        'type' => $e->eventtype,
+        'time' => (int) $e->timecreated,
+        'detail' => $e->detail ?? '',
+        ];
+    }
+
+    $scanjs = null;
+
+    if ($scan) {
+        $scanjs = [
+        'video_url'   => quizaccess_tagproctoring_pluginfile_url(
+            $context,
+            'roomscan',
+            $scan->userid,
+            $scan->filename ?? ''
+        ),
+        'selfie_url'  => quizaccess_tagproctoring_pluginfile_url(
+            $context,
+            'selfie',
+            $scan->userid,
+            $scan->selfie_filename ?? ''
+        ),
+        'idphoto_url' => quizaccess_tagproctoring_pluginfile_url(
+            $context,
+            'idphoto',
+            $scan->userid,
+            $scan->idphoto_filename ?? ''
+        ),
+        'objects'             => $scan->scan_objects ? (json_decode($scan->scan_objects, true) ?: []) : [],
+        'suspicious'          => !empty($scan->scan_suspicious),
+        'face_match_verified' => isset($scan->face_match_verified) ? (int) $scan->face_match_verified : null,
+        'face_match_distance' => isset($scan->face_match_distance) ? (float) $scan->face_match_distance : null,
+        'needs_rescan'        => !empty($scan->needs_rescan),
+        ];
+    }
+
+    if (!isset($studentsdata[$uid])) {
+        $studentsdata[$uid] = [
+        'userid' => $uid,
+        'name' => trim($attempt->firstname . ' ' . $attempt->lastname),
+        'email' => $attempt->email,
+        'attempts' => [],
+        ];
+    }
+
+    $studentsdata[$uid]['attempts'][] = [
+    'id' => (int) $attempt->id,
+    'attempt_num' => (int) $attempt->attempt,
+    'timestart' => (int) $attempt->timestart,
+    'timefinish' => (int) $attempt->timefinish,
+    'sumgrades' => isset($attempt->sumgrades) ? (float) $attempt->sumgrades : null,
+    'quiz_sumgrades' => (float) $quiz->sumgrades,
+    'risk_score'     => $risk['score'],
+    'risk_level'     => $risklevel,
+    'override_valid' => $overridesbyattempt[(int) $attempt->id] ?? false,
+    'reviewed'       => $reviewedbyattempt[(int) $attempt->id] ?? false,
+    'review_url' => (new moodle_url('/mod/quiz/review.php', ['attempt' => $attempt->id]))->out(),
+    'scan' => $scanjs,
+    'events' => $eventlist,
+    'screenshots' => $shotlist,
+    ];
+}
+
+$studentslist = array_values($studentsdata);
+
+// Compute summary counts for the stats panel.
+$stathigh = $statreview = $statvalid = 0;
+foreach ($studentslist as $s) {
+    foreach ($s['attempts'] as $a) {
+        $eff = $a['override_valid'] ? 'valid' : $a['risk_level'];
+        if ($eff === 'invalid') {
+            $stathigh++;
+        } else if ($eff === 'review') {
+            $statreview++;
+        } else {
+            $statvalid++;
+        }
+    }
+}
+
+// Pass action URLs only via js_call_amd (small, safe).
+// Student data is embedded as a JSON script tag to avoid the 1024-char limit.
+$PAGE->requires->js_call_amd('quizaccess_tagproctoring/report', 'init', [
+    null, // Students loaded from inline JSON.
+    [
+        'setOverrideUrl'  => $setoverrideurl,
+        'deleteShotsUrl'  => $deleteshotsurl,
+        'deleteEventsUrl' => $deleteeventsurl,
+        'deleteScanBase'  => $deletescanbase,
+        'setReviewedUrl'  => $setreviewedurl,
+        'setIdentityUrl'  => $setidentityurl,
+        'grantRescanUrl'  => $grantrescanurl,
+        'sesskey'         => $reportsesskey,
+        'quizid'          => (int) $quiz->id,
+    ],
+]);
+
+$quizname = format_string($quizobj->get_quiz_name());
+$totalstudents = count($studentslist);
+$totalattempts = count($attempts);
+$studentsjson = json_encode($studentslist, JSON_HEX_TAG | JSON_HEX_AMP);
+$tagproctoringfooter = $OUTPUT->footer();
+
+$csvexporturl = (new moodle_url(
+    '/mod/quiz/accessrule/tagproctoring/export_csv.php',
+    ['cmid' => $cmid, 'qid' => $qid, 'sesskey' => sesskey()]
+))->out(false);
+
+$templatectx = [
+    'studentsjson'  => $studentsjson,
+    'quizname'      => $quizname,
+    'totalstudents' => $totalstudents,
+    'totalattempts' => $totalattempts,
+    'stathigh'      => $stathigh,
+    'statreview'    => $statreview,
+    'statvalid'     => $statvalid,
+    'csvexporturl'  => $csvexporturl,
+];
+
+echo $OUTPUT->render_from_template('quizaccess_tagproctoring/report', $templatectx);
+echo $tagproctoringfooter;

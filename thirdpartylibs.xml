@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<libraries>
+    <library>
+        <location>vendor/js/tf.min.js</location>
+        <name>TensorFlow.js</name>
+        <version>N/A</version>
+        <license>Apache License, Version 2.0</license>
+        <licenseversion>2.0</licenseversion>
+    </library>
+    <library>
+        <location>vendor/js/blazeface.min.js</location>
+        <name>TensorFlow BlazeFace</name>
+        <version>0.0.7</version>
+        <license>Apache License, Version 2.0</license>
+        <licenseversion>2.0</licenseversion>
+    </library>
+    <library>
+        <location>vendor/js/coco-ssd.min.js</location>
+        <name>TensorFlow COCO-SSD</name>
+        <version>2.2.3</version>
+        <license>Apache License, Version 2.0</license>
+        <licenseversion>2.0</licenseversion>
+    </library>
+</libraries>
