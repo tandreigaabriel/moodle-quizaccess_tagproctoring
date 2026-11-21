@@ -448,6 +448,7 @@ $string['ui_network_error_saving_override'] = 'Network error saving override.';
 $string['ui_network_error_saving_reviewed_status'] = 'Network error saving reviewed status.';
 $string['ui_no_face_detected_centre_your_face_in_the_oval'] = 'No face detected — centre your face in the oval.';
 $string['ui_no_face_detected_show_your_face_alongside_your_id'] = 'No face detected - show your face alongside your ID.';
+$string['ui_no_id_in_the_green_box'] = 'No ID visible in the green box. Hold your ID inside it, or press the camera button to take the photo yourself.';
 $string['ui_once_disconnected_reload_this_page_to_continue_your_exam'] = 'Once disconnected, reload this page to continue your exam.';
 $string['ui_once_disconnected_this_message_closes_and_you_can_continue'] = 'Once it is disconnected, this message closes by itself and you can continue your exam.';
 $string['ui_paste_event'] = 'Paste event';

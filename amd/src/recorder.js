@@ -693,6 +693,7 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
      */
     function initSelfie() {
         var video       = el('tagwiz-selfie-video');
+        var videoWrap   = video ? video.closest('.tagwiz-video-wrap') : null;
         var captureBtn  = el('tagwiz-selfie-capture');
         var retakeBtn   = el('tagwiz-selfie-retake');
         var previewWrap = el('tagwiz-selfie-preview-wrap');
@@ -983,6 +984,9 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
                 }
                 previewImg.src = URL.createObjectURL(blob);
                 previewWrap.style.display = 'block';
+                if (videoWrap) {
+                    videoWrap.style.display = 'none';
+                }
                 if (selfieCanvas) {
                     selfieCanvas.style.display = 'none';
                 }
@@ -1000,6 +1004,9 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
         retakeBtn.addEventListener('click', function() {
             previewImg.src = '';
             previewWrap.style.display = 'none';
+            if (videoWrap) {
+                videoWrap.style.display = '';
+            }
             if (selfieCanvas) {
                 selfieCanvas.style.display = 'block';
             }
@@ -1064,6 +1071,7 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
      */
     function initIdPhoto() {
         var video        = el('tagwiz-id-video');
+        var videoWrap    = video ? video.closest('.tagwiz-video-wrap') : null;
         var captureBtn   = el('tagwiz-id-capture');
         var retakeBtn    = el('tagwiz-id-retake');
         var previewWrap  = el('tagwiz-id-preview-wrap');
@@ -1087,6 +1095,76 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
 
         /* Hoisted loop variables for validateImage - avoids no-inner-declarations lint error */
         var bi, lumaSum, lumaCount, avgLuma, ly, lx, idx, g, gU, gD, gL, gR, lapSum, lapCount;
+
+        /* Green-box check. Auto-capture must not fire on a face alone: something new, with the
+           edges of printed text, has to appear inside the guide box compared with the empty box
+           remembered when the step started. The camera button still captures manually. */
+        var boxCanvas = document.createElement('canvas');
+        boxCanvas.width  = 128;
+        boxCanvas.height = 96;
+        var boxCtx = boxCanvas.getContext('2d');
+        var boxBaseline = null;
+        var boxBaselineFrames = 0;
+        /* Guide box geometry in the 128x96 sample, mirroring .tagwiz-id-guide (68% wide, 8% bottom gap). */
+        var bx0 = Math.round(128 * 0.16);
+        var bx1 = Math.round(128 * 0.84);
+        var by1 = Math.round(96 * 0.92);
+        var by0 = by1 - Math.round((bx1 - bx0) * 54 / 85.6);
+        var bxi, byi, bp, bk, bluma, bchanged, btotal, bedgeSum, bedgeCount;
+
+        /**
+         * Luma of the current frame, downscaled to 128x96.
+         *
+         * @returns {Float32Array} One luma value per sample pixel.
+         */
+        function sampleLuma() {
+            boxCtx.drawImage(video, 0, 0, 128, 96);
+            var d = boxCtx.getImageData(0, 0, 128, 96).data;
+            var out = new Float32Array(128 * 96);
+            for (bk = 0, bp = 0; bk < d.length; bk += 4, bp++) {
+                out[bp] = 0.299 * d[bk] + 0.587 * d[bk + 1] + 0.114 * d[bk + 2];
+            }
+            return out;
+        }
+
+        /**
+         * Is there an ID-like object inside the guide box?
+         *
+         * The first three scans remember the empty box as baseline. Afterwards at least 35% of the
+         * box must differ clearly from that baseline and the box must contain enough edges
+         * (printed text, card borders).
+         *
+         * @returns {boolean} True when the box content looks like a card placed after the step began.
+         */
+        function idInBox() {
+            bluma = sampleLuma();
+            if (boxBaselineFrames < 3) {
+                if (!boxBaseline) {
+                    boxBaseline = new Float32Array(bluma);
+                } else {
+                    for (bk = 0; bk < bluma.length; bk++) {
+                        boxBaseline[bk] = (boxBaseline[bk] + bluma[bk]) / 2;
+                    }
+                }
+                boxBaselineFrames++;
+                return false;
+            }
+            bchanged = 0; btotal = 0; bedgeSum = 0; bedgeCount = 0;
+            for (byi = by0; byi < by1; byi++) {
+                for (bxi = bx0; bxi < bx1; bxi++) {
+                    bp = byi * 128 + bxi;
+                    btotal++;
+                    if (Math.abs(bluma[bp] - boxBaseline[bp]) > 30) {
+                        bchanged++;
+                    }
+                    if (byi > by0 && byi < by1 - 1 && bxi > bx0 && bxi < bx1 - 1) {
+                        bedgeSum += Math.abs(4 * bluma[bp] - bluma[bp - 128] - bluma[bp + 128] - bluma[bp - 1] - bluma[bp + 1]);
+                        bedgeCount++;
+                    }
+                }
+            }
+            return btotal > 0 && bedgeCount > 0 && (bchanged / btotal) >= 0.35 && (bedgeSum / bedgeCount) >= 6;
+        }
 
         /**
          * Update the guide border colour (via CSS custom property) and label text.
@@ -1190,6 +1268,14 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
                 return;
             }
 
+            /* Something must actually be inside the guide box */
+            if (!idInBox()) {
+                cancelCountdown();
+                stableFrames = 0;
+                setGuide('rgba(156,163,175,.80)', I18n.get('ui_place_your_id_inside_the_green_box'));
+                setStatus('tagwiz-id-status', I18n.get('ui_no_id_in_the_green_box'), 'warning');
+                return;
+            }
             /* All good */
             stableFrames++;
             setGuide('rgba(34,197,94,.85)', I18n.get('ui_hold_still'));
@@ -1307,6 +1393,7 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
                 }
                 previewImg.src = URL.createObjectURL(blob);
                 previewWrap.style.display = 'block';
+                if (videoWrap) { videoWrap.style.display = 'none'; }
                 captureBtn.style.display  = 'none';
                 retakeBtn.style.display   = 'inline-block';
                 if (guideEl) { guideEl.style.display = 'none'; }
@@ -1326,6 +1413,7 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
         retakeBtn.addEventListener('click', function() {
             previewImg.src = '';
             previewWrap.style.display = 'none';
+            if (videoWrap) { videoWrap.style.display = ''; }
             captureBtn.style.display  = 'inline-block';
             retakeBtn.style.display   = 'none';
             nextBtn.disabled = true;

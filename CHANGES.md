@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed
+- Wizard: the captured selfie / ID photo now replaces the live camera box instead of appearing under it (no empty black box, no extra scrolling).
+- Wizard, ID step: auto-capture no longer fires on a face alone — something with printed edges must appear inside the green box compared with the empty box remembered at the start of the step; otherwise the student sees "No ID visible in the green box" and can still use the camera button.
+- styles.css: the `@media (max-height: 820px)` block was not closed, which pulled the whole theme CSS into it (pages unstyled on viewports taller than 820 px).
+
 - Fixed: event-triggered screenshots (`tabswitch`, `windowblur`, `contextmenu`, `faceaway`, `faceturn`) were rejected by `screenshot_upload.php` with HTTP 500 because its `source` allow-list only accepted `webcam`/`screen`; violation screenshots were never stored.
 - Fixed: uploads larger than the server's PHP limits (`post_max_size` / `upload_max_filesize`) showed the generic "An error occurred. Please try again." The room-scan, selfie and ID endpoints now return HTTP 413 with the actual server limit (`error_upload_too_large`), and `upload.php` logs the exception to `moodledata/quizaccess_tagproctoring/logs/upload.log`.
 - Fixed: the "Multiple Monitors Detected" overlay now closes by itself when the second display is disconnected (`screen` `change` event + 2 s poll) and returns if a display is attached later; no page reload needed.

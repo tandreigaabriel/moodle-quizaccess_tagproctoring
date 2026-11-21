@@ -89,6 +89,7 @@ define(['core/str'], function(Str) {
         "ui_network_error_saving_reviewed_status",
         "ui_no_face_detected_centre_your_face_in_the_oval",
         "ui_no_face_detected_show_your_face_alongside_your_id",
+        "ui_no_id_in_the_green_box",
         "ui_once_disconnected_reload_this_page_to_continue_your_exam",
         "ui_once_disconnected_this_message_closes_and_you_can_continue",
         "ui_paste_event",
