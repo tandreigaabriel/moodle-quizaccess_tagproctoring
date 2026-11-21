@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixed
+- Deleting a student's quiz attempt (quiz results page) now flags their room scan, selfie and ID photo as needing a new readiness check; the next attempt starts the wizard again instead of skipping it. Previous evidence is kept until the new scan replaces it (observer on mod_quiz attempt_deleted, with a PHPUnit test).
 - Report: the session summary now lists "exam window focus loss" (windowblur) events; before, an attempt scored for them could still read "No violations detected".
 - Wizard: the captured selfie / ID photo now replaces the live camera box instead of appearing under it (no empty black box, no extra scrolling).
 - Wizard, ID step: auto-capture no longer fires on a face alone — something with printed edges must appear inside the green box compared with the empty box remembered at the start of the step; otherwise the student sees "No ID visible in the green box" and can still use the camera button.

@@ -59,4 +59,27 @@ class observer {
         ]);
         \core\task\manager::queue_adhoc_task($task, true);
     }
+
+    /**
+     * Fires when a quiz attempt is deleted (teacher/admin, quiz results page).
+     *
+     * The room scan, selfie and ID photo belong to the user and quiz, not to the attempt, so
+     * they would otherwise let the next attempt skip the readiness check. Mark them as needing
+     * a new scan: the previous evidence stays until the student records the new one.
+     *
+     * @param \mod_quiz\event\attempt_deleted $event
+     * @return void
+     */
+    public static function attempt_deleted(\mod_quiz\event\attempt_deleted $event): void {
+        global $DB;
+
+        $quizid = (int) ($event->other['quizid'] ?? 0);
+        $userid = (int) $event->relateduserid;
+
+        if (!$quizid || !$userid) {
+            return;
+        }
+
+        $DB->set_field('quizaccess_tagproctoring_scan', 'needs_rescan', 1, ['quizid' => $quizid, 'userid' => $userid]);
+    }
 }
