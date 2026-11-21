@@ -404,6 +404,7 @@ if ($ADMIN->fulltree) {
     $settings->add(new admin_setting_configpasswordunmask(
         'quizaccess_tagproctoring/s3_secret',
         get_string('settings_s3_secret', 'quizaccess_tagproctoring'),
+        '',
         ''
     ));
     $settings->add(new admin_setting_configcheckbox(
