@@ -92,6 +92,7 @@ function quizaccess_tagproctoring_calculate_attempt_risk(
         'multiplescreen'  => (int) (get_config($plg, 'risk_score_multiplescreen') ?: 50),
         'multiplefaces'   => 40,
         'noface'          => 20,
+        'faceaway'        => 20,
     ];
     $medrisk = [
         'fullscreenexit'   => (int) (get_config($plg, 'risk_score_fullscreenexit') ?: 20),

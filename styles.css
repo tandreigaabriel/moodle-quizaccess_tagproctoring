@@ -485,6 +485,8 @@
   .tagwiz-bar  { flex-wrap: wrap; row-gap: 10px; }
 }
 
+}
+
 /* Camera / video */
 .tagwiz-video-wrap {
   position: relative;
@@ -1973,3 +1975,21 @@
     padding: 0 !important;
     background: transparent !important;
 }
+
+/* Laptop screens (<= 820px tall): keep every wizard step inside the viewport, no scrolling. */
+@media (max-height: 820px) {
+  .tagwiz-wrap { padding: 10px 16px 12px; }
+  .tagwiz-hero { padding: 10px 20px; }
+  .tagwiz-hero-sub { display: none; }
+  .tagwiz-bar { padding: 10px 16px 8px; }
+  .tagwiz-ind { gap: 4px; }
+  .tagwiz-ind-circle { width: 32px; height: 32px; }
+  .tagwiz-wrap--guided .tagwiz-card { min-height: 0; }
+  .tagwiz-wrap--guided .tagwiz-card-header { padding: 10px 20px; }
+  .tagwiz-wrap--guided .tagwiz-card-body { padding: 12px 18px; }
+  .tagwiz-card-body > p:first-child,
+  .tagwiz-rs-intro { margin-bottom: 8px; }
+  #tagwiz-rule-slides,
+  .tagwiz-rule-slide { min-height: 150px; }
+  .tagwiz-rule-slide { padding: 14px 12px 10px; }
+  .tagwiz-video-wrap { max-height: calc(100vh - 450px); }

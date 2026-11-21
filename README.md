@@ -17,16 +17,15 @@ TAG Proctoring is a quiz access rule plugin for Moodle that enables lightweight 
 - Selfie capture with animated guide, auto-capture countdown, and blur/brightness/face validation
 - Photo ID capture with alignment guide box, face detection, and auto-capture
 - Screen share prompt with surface-type enforcement (tab share blocked, full-screen or monitor required)
-- Multi-monitor detection — blocks exam start when more than one display is active
+- Multi-monitor detection — blocks the exam while more than one display is active; the block lifts by itself when the extra display is unplugged and returns if one is connected during the attempt (Chromium only)
 - Animated fullscreen takeover overlay with escalating warnings on repeated exits
-- Mobile and unsupported browser blocking with clear messaging
+- Mobile and unsupported browser blocking with clear messaging — Firefox and Safari are blocked before the wizard because they cannot detect a second monitor; the notice lists the supported browsers
 
 ### In-exam monitoring
 
-- Periodic webcam screenshots (configurable interval and cap)
-- Periodic screen-share screenshots
-- Event logging: tab switch, window blur, copy/paste, DevTools open, context menu, fullscreen exit
-- Face-turn detection via AI (logs `faceturn` event after configurable threshold)
+- Evidence screenshots on suspicious events (tab switch, window blur, right-click, face away, second person) — from the shared screen when available, from the webcam for face events; rate-limited and capped per attempt
+- Event logging: tab switch, window blur, copy/paste, DevTools open, context menu, fullscreen exit, multiple screens, screen-share stop
+- Face presence via AI (BlazeFace, every 3 s): `faceaway` when no face is visible for ~9 s, `multiplefaces` when a second person is in front of the camera — both with a webcam screenshot and a risk score
 - Status bar showing webcam dot, screen-share dot, and elapsed timer
 
 ### Instructor report
@@ -59,7 +58,9 @@ TAG Proctoring is a quiz access rule plugin for Moodle that enables lightweight 
 - Moodle 4.5 or later
 - PHP 8.1 or later
 - HTTPS required — webcam, screen share, and MediaRecorder APIs require a secure context
-- Modern browser with support for `getUserMedia`, `getDisplayMedia`, and `MediaRecorder` (Chrome 72+, Edge 79+, Firefox 66+)
+- Browser: Google Chrome, Microsoft Edge, Brave or Opera — Chromium 100 or newer on Windows, macOS or Linux (the Window Management API is needed for multi-monitor detection). Firefox, Safari, phones and tablets are blocked with a notice.
+- PHP `upload_max_filesize` and `post_max_size` of at least 32M (a 45-second room scan is about 5–6 MB; the student sees the server limit if an upload is rejected)
+- Storage: all media goes through the Moodle File API, so `tool_objectfs` can offload it transparently to S3, Azure or GCS; the retention task deletes expired and orphaned files wherever they are stored
 - A TAG Proctoring licence key for the site (60-day trial key or paid licence, see *Commercial licence*)
 
 ## Commercial licence

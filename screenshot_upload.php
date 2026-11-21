@@ -86,7 +86,8 @@ try {
     // its per-shot labels off exactly these values, so the allow-list must match the monitor triggers.
     // PARAM_ALPHA strips everything except letters — safe for use in the filename.
     $source = optional_param('source', 'webcam', PARAM_ALPHA);
-    if (!in_array($source, ['webcam', 'screen', 'tabswitch', 'windowblur', 'contextmenu', 'faceaway', 'faceturn'], true)) {
+    $allowedsources = ['webcam', 'screen', 'tabswitch', 'windowblur', 'contextmenu', 'faceaway', 'faceturn', 'multiplefaces'];
+    if (!in_array($source, $allowedsources, true)) {
         throw new moodle_exception('invalidparameter', 'error');
     }
     // Append a short uniqid suffix so concurrent uploads in the same second never collide.

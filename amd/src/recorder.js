@@ -374,6 +374,47 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
     // ── Step 0 — Rules ──────────────────────────────────────────────────────
 
     /**
+     * Stop the wizard in browsers the exam monitor cannot support: no camera or
+     * screen-sharing API, or no Window Management API (multiple-monitor
+     * detection, Chromium >= 100 only). Shows the supported-browser list.
+     *
+     * @returns {boolean} True when the browser is supported.
+     */
+    function wizardEnvironmentSupported() {
+        var missing = [];
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            missing.push(I18n.get('ui_webcam_access'));
+        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+            missing.push(I18n.get('ui_screen_sharing'));
+        }
+        if (!(window.screen && typeof window.screen.isExtended === 'boolean')) {
+            missing.push(I18n.get('ui_multiple_monitor_detection'));
+        }
+        if (!missing.length) {
+            return true;
+        }
+        var wrap = document.getElementById('tagwiz-wrap');
+        if (wrap) {
+            var box = document.createElement('div');
+            box.className = 'alert alert-danger';
+            box.setAttribute('role', 'alert');
+            var title = document.createElement('strong');
+            title.textContent = I18n.get('ui_unsupported_browser');
+            var text = document.createElement('p');
+            text.className = 'mb-0';
+            text.textContent = I18n.get('monitor_missing', missing.join(', ')) + ' ' + I18n.get('ui_supported_browsers');
+            box.appendChild(title);
+            box.appendChild(text);
+            while (wrap.firstChild) {
+                wrap.removeChild(wrap.firstChild);
+            }
+            wrap.appendChild(box);
+        }
+        return false;
+    }
+
+    /**
      * Initialise the rules step as a slide-by-slide walkthrough.
      * Each slide shows one rule; the student presses Next to advance.
      * On the final (consent) slide the button becomes "I Agree & Continue".
@@ -1445,6 +1486,10 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
         var wrap = el('tagwiz-wrap');
         if (wrap) {
             wrap.style.display = '';
+        }
+        if (!wizardEnvironmentSupported()) {
+            // The wrap now shows the unsupported-browser notice over the whole page.
+            return;
         }
         showStep(0);
         initRules();

@@ -56,6 +56,8 @@ function(Ajax, I18n, Templates, Notification) {
     var faceDetectModel = null;
     var noFaceCount     = 0;      // consecutive 3-s polls with no face in frame
     var lastNoFaceShot  = 0;      // Date.now() of last face-away screenshot
+    var multiFaceCount  = 0;      // consecutive 3-s polls with more than one face
+    var lastMultiFaceShot = 0;    // Date.now() of last multiple-faces event
 
     // Cached last-good frame so screenshots succeed even when live videos are paused.
     var lastFrameCanvas = null;
@@ -283,7 +285,7 @@ function(Ajax, I18n, Templates, Notification) {
         if (!cfg.enablescreenshots) {
             return;
         }
-        if (['tabswitch', 'windowblur', 'contextmenu'].indexOf(trigger) === -1) {
+        if (['tabswitch', 'windowblur', 'contextmenu', 'faceaway', 'multiplefaces'].indexOf(trigger) === -1) {
             return;
         }
         // Rate limit: skip if an upload is already in-flight or was sent less than 5 s ago.
@@ -298,7 +300,8 @@ function(Ajax, I18n, Templates, Notification) {
         // student's face to understand why the alert fired, not the screen content.
         // All other events (tab switch, window blur, etc.) prefer the screen-share
         // stream so the invigilator can see what the student switched to.
-        if (screenVideo && screenVideo.readyState >= 2 && screenVideo.videoWidth > 0) {
+        var wantWebcam = (trigger === 'faceaway' || trigger === 'multiplefaces');
+        if (!wantWebcam && screenVideo && screenVideo.readyState >= 2 && screenVideo.videoWidth > 0) {
             var w = screenVideo.videoWidth;
             var h = screenVideo.videoHeight;
             // Scale down to max 960 px wide — smaller than 1280 reduces server storage and I/O.
@@ -307,10 +310,11 @@ function(Ajax, I18n, Templates, Notification) {
             canvas.height = Math.round(h * scale);
             canvas.getContext('2d').drawImage(screenVideo, 0, 0, canvas.width, canvas.height);
         } else if (liveVideo && liveVideo.readyState >= 2) {
-            // Webcam frame — used for face-turn events and as fallback when screen share unavailable.
-            canvas.width  = 256;
-            canvas.height = 192;
-            canvas.getContext('2d').drawImage(liveVideo, 0, 0, 256, 192);
+            // Webcam frame — used for face events (evidence of who is in front of the
+            // camera) and as fallback when screen share is unavailable.
+            canvas.width  = wantWebcam ? 480 : 256;
+            canvas.height = wantWebcam ? 360 : 192;
+            canvas.getContext('2d').drawImage(liveVideo, 0, 0, canvas.width, canvas.height);
         } else if (lastFrameCanvas && lastFrameCanvas.width > 0) {
             // Both live videos are paused (e.g. tab just switched) — use the last cached frame.
             canvas = lastFrameCanvas;
@@ -392,6 +396,7 @@ function(Ajax, I18n, Templates, Notification) {
                             lastNoFaceShot = nowAway;
                             noFaceCount = 0;
                             logEvent('faceaway', I18n.get('ui_face_not_visible_for_9_seconds'));
+                            captureScreenshot('faceaway');
                         }
                     }
                     return;
@@ -399,9 +404,19 @@ function(Ajax, I18n, Templates, Notification) {
 
                 noFaceCount = 0; // reset when face is visible again
 
-                if (faces.length !== 1) {
+                if (faces.length > 1) {
+                    // A second person in frame: flag after 2 consecutive polls (about 6 s),
+                    // at most once every 30 s, with a webcam screenshot as evidence.
+                    multiFaceCount++;
+                    if (multiFaceCount >= 2 && Date.now() - lastMultiFaceShot > 30000) {
+                        lastMultiFaceShot = Date.now();
+                        multiFaceCount = 0;
+                        logEvent('multiplefaces', I18n.get('ui_faces_visible_in_the_camera', faces.length));
+                        captureScreenshot('multiplefaces');
+                    }
                     return;
                 }
+                multiFaceCount = 0;
                 var lm = faces[0].landmarks;
                 if (!lm || lm.length < 3) {
                     return;
@@ -869,6 +884,11 @@ function(Ajax, I18n, Templates, Notification) {
         if (!fsReq) {
             missing.push(I18n.get('ui_full_screen_required'));
         }
+        if (!canDetectExtendedScreen()) {
+            // Window Management API (Chromium >= 100). Firefox and Safari cannot
+            // tell us about a second monitor, so the exam cannot be secured there.
+            missing.push(I18n.get('ui_multiple_monitor_detection'));
+        }
 
         return {
             supported: missing.length === 0,
@@ -895,9 +915,6 @@ function(Ajax, I18n, Templates, Notification) {
         var mobile  = isMobileDevice();
         var caps = getCapabilityStatus();
         if (!mobile && caps.supported) {
-            if (!canDetectExtendedScreen()) {
-                logEvent('capabilitywarning', I18n.get('ui_multiple_monitor_detection_unavailable_in') + detectBrowser());
-            }
             return false;
         }
 
@@ -909,8 +926,9 @@ function(Ajax, I18n, Templates, Notification) {
         } else {
             title = I18n.get('ui_unsupported_browser');
             msg   = I18n.get('ui_this_secure_exam_requires_camera_screen_sharing_fullscreen_and_https_support');
-            sub   = I18n.get('monitor_missing', caps.missing.join(', '));
+            sub   = I18n.get('monitor_missing', caps.missing.join(', ')) + ' ' + I18n.get('ui_supported_browsers');
         }
+        logEvent('capabilitywarning', title + ': ' + detectBrowser() + (mobile ? '' : ' - ' + caps.missing.join(', ')));
 
         var overlay = document.createElement('div');
         overlay.style.cssText = [
