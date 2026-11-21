@@ -231,7 +231,7 @@ function(Str, Templates, Notification, I18n) {
 
         // High-risk first, then medium/low.
         var order = ['screenshare', 'multiplescreen', 'screensharestop', 'multiplefaces',
-                     'fullscreenexit', 'tabswitch', 'visibilityhidden',
+                     'fullscreenexit', 'tabswitch', 'windowblur', 'visibilityhidden',
                      'faceaway', 'noface', 'capabilitywarning', 'copypaste', 'devtools', 'contextmenu'];
         order.forEach(function(t) {
             if (counts[t]) {

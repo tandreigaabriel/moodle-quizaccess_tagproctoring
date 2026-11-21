@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Fixed
+- Report: the session summary now lists "exam window focus loss" (windowblur) events; before, an attempt scored for them could still read "No violations detected".
 - Wizard: the captured selfie / ID photo now replaces the live camera box instead of appearing under it (no empty black box, no extra scrolling).
 - Wizard, ID step: auto-capture no longer fires on a face alone — something with printed edges must appear inside the green box compared with the empty box remembered at the start of the step; otherwise the student sees "No ID visible in the green box" and can still use the camera button.
 - styles.css: the `@media (max-height: 820px)` block was not closed, which pulled the whole theme CSS into it (pages unstyled on viewports taller than 820 px).
