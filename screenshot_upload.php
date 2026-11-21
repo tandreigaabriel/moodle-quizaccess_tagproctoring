@@ -81,9 +81,12 @@ try {
     \quizaccess_tagproctoring\local\media_validator::validate_image($_FILES['screenshot']);
 
     $fs = get_file_storage();
-    // Screen or webcam. PARAM_ALPHA strips everything except letters — safe for filenames.
+    // The source records what produced the screenshot: a periodic 'screen'/'webcam' capture, or the
+    // event that triggered it (tab switch, window blur, right click, face away/turn). The report keys
+    // its per-shot labels off exactly these values, so the allow-list must match the monitor triggers.
+    // PARAM_ALPHA strips everything except letters — safe for use in the filename.
     $source = optional_param('source', 'webcam', PARAM_ALPHA);
-    if (!in_array($source, ['webcam', 'screen'], true)) {
+    if (!in_array($source, ['webcam', 'screen', 'tabswitch', 'windowblur', 'contextmenu', 'faceaway', 'faceturn'], true)) {
         throw new moodle_exception('invalidparameter', 'error');
     }
     // Append a short uniqid suffix so concurrent uploads in the same second never collide.
