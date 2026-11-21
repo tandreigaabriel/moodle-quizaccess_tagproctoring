@@ -36,6 +36,30 @@ class media_validator {
     public const IMAGE_PIXELS = 16000000;
 
     /**
+     * Detect a request that PHP already truncated because of its upload limits.
+     *
+     * When the body exceeds post_max_size PHP discards $_POST and $_FILES, so the
+     * sesskey check fails and the student only sees a generic error. Call this
+     * after require_login() and before require_sesskey().
+     *
+     * @param array|null $files Upload descriptors (defaults to $_FILES).
+     * @param int|null $contentlength Request body size (defaults to CONTENT_LENGTH).
+     * @return string Human-readable server limit when too large, empty string otherwise.
+     */
+    public static function request_too_large(?array $files = null, ?int $contentlength = null): string {
+        $files = $files ?? $_FILES;
+        $contentlength = $contentlength ?? (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
+        $limit = (int) get_max_upload_file_size();
+        $toolarge = $limit > 0 && $contentlength > $limit;
+        foreach ($files as $file) {
+            if (in_array($file['error'] ?? UPLOAD_ERR_OK, [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+                $toolarge = true;
+            }
+        }
+        return $toolarge ? display_size($limit) : '';
+    }
+
+    /**
      * Validate actual bytes on disk, ignoring client MIME and size claims.
      *
      * @param array $file PHP upload descriptor.

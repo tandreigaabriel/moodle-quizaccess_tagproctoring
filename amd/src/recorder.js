@@ -468,9 +468,13 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
             startAI(video);
 
             try {
-                mediaRecorder = recordingFormat.mimeType
-                    ? new MediaRecorder(stream, {mimeType: recordingFormat.mimeType})
-                    : new MediaRecorder(stream);
+                // Cap the bitrate: browsers default to ~2.5 Mbps, which pushes a
+                // 45-second scan past common PHP post_max_size limits (8 MB).
+                var recorderOptions = {videoBitsPerSecond: 1000000};
+                if (recordingFormat.mimeType) {
+                    recorderOptions.mimeType = recordingFormat.mimeType;
+                }
+                mediaRecorder = new MediaRecorder(stream, recorderOptions);
             } catch (e) {
                 setStatus('tagwiz-rs-status',
                     I18n.get('ui_video_recording_could_not_start_in_this_browser_please_use_a_current_desktop_brows'),

@@ -48,6 +48,19 @@ final class media_validator_test extends \advanced_testcase {
     }
 
     /**
+     * Requests truncated by the PHP upload limits are reported with the server limit.
+     */
+    public function test_request_too_large(): void {
+        $limit = (int) get_max_upload_file_size();
+        $this->assertGreaterThan(0, $limit);
+        $this->assertSame('', media_validator::request_too_large([], 10));
+        $this->assertSame('', media_validator::request_too_large([['error' => UPLOAD_ERR_OK]], $limit));
+        $this->assertSame(display_size($limit), media_validator::request_too_large([], $limit + 1));
+        $this->assertSame(display_size($limit), media_validator::request_too_large([['error' => UPLOAD_ERR_INI_SIZE]], 10));
+        $this->assertSame(display_size($limit), media_validator::request_too_large([['error' => UPLOAD_ERR_FORM_SIZE]], 10));
+    }
+
+    /**
      * Invalid bytes cannot masquerade as an image or a video.
      */
     public function test_invalid_media(): void {

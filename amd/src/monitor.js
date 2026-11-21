@@ -63,6 +63,7 @@ function(Ajax, I18n, Templates, Notification) {
     // Set to true while we are requesting our own screen share so detectScreenShare()
     // does not log it as a student-initiated share event.
     var ownScreenShareActive = false;
+    var multiScreenOverlay = null;
 
     // Set to true while the getDisplayMedia picker is open.
     // The picker causes fullscreen to exit and window to blur — both of which would
@@ -533,10 +534,45 @@ function(Ajax, I18n, Templates, Notification) {
     }
 
     /**
+     * Whether a second screen is currently attached (Window Management API).
+     *
+     * @returns {boolean} True when the browser reports an extended display.
+     */
+    function hasExtendedScreen() {
+        return !!(window.screen && window.screen.isExtended === true);
+    }
+
+    /**
      * Block the attempt and log when the student uses multiple screens.
+     *
+     * The overlay closes by itself once the second screen is disconnected
+     * (screen 'change' event, with a 2 s poll as fallback) and comes back if
+     * a screen is attached later during the attempt.
      */
     function detectMultipleScreens() {
-        if (!(window.screen && window.screen.isExtended === true)) {
+        if (!canDetectExtendedScreen()) {
+            return;
+        }
+        var sync = function() {
+            if (hasExtendedScreen()) {
+                showMultipleScreensOverlay();
+            } else if (multiScreenOverlay) {
+                multiScreenOverlay.remove();
+                multiScreenOverlay = null;
+            }
+        };
+        sync();
+        if (typeof window.screen.addEventListener === 'function') {
+            window.screen.addEventListener('change', sync);
+        }
+        setInterval(sync, 2000);
+    }
+
+    /**
+     * Render the blocking overlay for multiple screens (once per detection).
+     */
+    function showMultipleScreensOverlay() {
+        if (multiScreenOverlay) {
             return;
         }
         logEvent("multiplescreen", "window.screen.isExtended = true");
@@ -558,8 +594,9 @@ function(Ajax, I18n, Templates, Notification) {
         renderInto('monitor_message', {
             title: I18n.get('monitor_multiple_title'),
             message: I18n.get('ui_a_second_screen_has_been_detected_you_must_disconnect_it_before_continuing'),
-            subtitle: I18n.get('ui_once_disconnected_reload_this_page_to_continue_your_exam')
+            subtitle: I18n.get('ui_once_disconnected_this_message_closes_and_you_can_continue')
         }, overlay).catch(Notification.exception);
+        multiScreenOverlay = overlay;
         document.body.appendChild(overlay);
     }
 

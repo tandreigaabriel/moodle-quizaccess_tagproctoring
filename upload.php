@@ -41,6 +41,17 @@ file_put_contents($logfile, date('[H:i:s] ') . "HIT\n", FILE_APPEND);
 
 try {
     require_login();
+
+    $toolarge = \quizaccess_tagproctoring\local\media_validator::request_too_large();
+    if ($toolarge !== '') {
+        http_response_code(413);
+        echo json_encode([
+            'status' => 'error',
+            'message' => get_string('error_upload_too_large', 'quizaccess_tagproctoring', $toolarge),
+        ]);
+        exit;
+    }
+
     require_sesskey();
 
     $quizid = required_param('quizid', PARAM_INT);
@@ -158,6 +169,8 @@ try {
     ]);
 } catch (Throwable $e) {
     ob_end_clean();
+
+    file_put_contents($logfile, date('[H:i:s] ') . 'ERROR ' . get_class($e) . ': ' . $e->getMessage() . "\n", FILE_APPEND);
 
     http_response_code(500);
 

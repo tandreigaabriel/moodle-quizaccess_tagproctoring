@@ -30,6 +30,17 @@ header('Content-Type: application/json');
 
 try {
     require_login();
+
+    $toolarge = \quizaccess_tagproctoring\local\media_validator::request_too_large();
+    if ($toolarge !== '') {
+        http_response_code(413);
+        echo json_encode([
+            'status' => 'error',
+            'message' => get_string('error_upload_too_large', 'quizaccess_tagproctoring', $toolarge),
+        ]);
+        exit;
+    }
+
     require_sesskey();
 
     $quizid = required_param('quizid', PARAM_INT);
