@@ -485,7 +485,6 @@
   .tagwiz-bar  { flex-wrap: wrap; row-gap: 10px; }
 }
 
-}
 
 /* Camera / video */
 .tagwiz-video-wrap {
@@ -1993,3 +1992,4 @@
   .tagwiz-rule-slide { min-height: 150px; }
   .tagwiz-rule-slide { padding: 14px 12px 10px; }
   .tagwiz-video-wrap { max-height: calc(100vh - 450px); }
+}
