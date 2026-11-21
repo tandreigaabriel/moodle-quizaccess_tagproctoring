@@ -73,7 +73,14 @@ class cleanup_files extends \core\task\scheduled_task
 
         $scancount = 0;
 
+        $store = \quizaccess_tagproctoring\local\s3_store::from_config();
+
         foreach ($scans as $scan) {
+            if ($store) {
+                foreach (['roomscan', 'selfie', 'idphoto'] as $area) {
+                    $store->delete_prefix($store->object_key((int) $scan->quizid, (int) $scan->userid, $area));
+                }
+            }
             $cm = get_coursemodule_from_instance('quiz', $scan->quizid, 0, false, IGNORE_MISSING);
 
             if ($cm) {
@@ -101,6 +108,9 @@ class cleanup_files extends \core\task\scheduled_task
         $shotcount = 0;
 
         foreach ($shots as $shot) {
+            if ($store) {
+                $store->delete($store->object_key((int) $shot->quiz, (int) $shot->userid, 'screenshots', $shot->filename));
+            }
             $cm = get_coursemodule_from_instance('quiz', $shot->quiz, 0, false, IGNORE_MISSING);
 
             if ($cm) {
@@ -123,6 +133,36 @@ class cleanup_files extends \core\task\scheduled_task
         }
 
         mtrace("TAG Proctoring cleanup: deleted $shotcount screenshot record(s) older than $retentiondays days.");
+
+        // Rows and files left behind when a quiz attempt was deleted in Moodle (there is no
+        // attempt-deleted observer): remove them regardless of age, otherwise they live forever.
+        $orphans = $DB->get_records_sql(
+            "SELECT s.id, s.quizid, s.userid, s.filename
+               FROM {quizaccess_tagproctoring_screenshots} s
+          LEFT JOIN {quiz_attempts} a ON a.id = s.attemptid
+              WHERE a.id IS NULL"
+        );
+        $orphancount = 0;
+        foreach ($orphans as $shot) {
+            if ($store) {
+                $store->delete($store->object_key((int) $shot->quizid, (int) $shot->userid, 'screenshots', $shot->filename));
+            }
+            $cm = get_coursemodule_from_instance('quiz', $shot->quizid, 0, false, IGNORE_MISSING);
+            if ($cm) {
+                $context = \context_module::instance($cm->id);
+                $file = $fs->get_file($context->id, 'quizaccess_tagproctoring', 'screenshots', $shot->userid, '/', $shot->filename);
+                if ($file) {
+                    $file->delete();
+                }
+            }
+            $DB->delete_records('quizaccess_tagproctoring_screenshots', ['id' => $shot->id]);
+            $orphancount++;
+        }
+        $DB->delete_records_select(
+            'quizaccess_tagproctoring_events',
+            'attemptid > 0 AND attemptid NOT IN (SELECT id FROM {quiz_attempts})'
+        );
+        mtrace("TAG Proctoring cleanup: deleted $orphancount orphan screenshot record(s) and events of deleted attempts.");
 
         $DB->delete_records_select(
             'quizaccess_tagproctoring_time',

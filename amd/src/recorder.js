@@ -284,7 +284,7 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
                                     return;
                                 }
                                 tfModel.detect(videoEl).then(function(objects) {
-                                    var persons = 0;
+                                    var personBoxes = [];
                                     objects.forEach(function(o) {
                                         if (o.score < (cfg.aiConfidence || 0.35)) {
                                             return;
@@ -294,10 +294,13 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
                                         if (flagged.includes(cls)) {
                                             detectedObjects[cls] = (detectedObjects[cls] || 0) + 1;
                                         }
-                                        if (cls === "person") {
-                                            persons++;
+                                        // A second person must be a confident, separate box: COCO-SSD often
+                                        // returns two overlapping boxes for the same student.
+                                        if (cls === "person" && o.score >= 0.5 && !overlapsAny(o.bbox, personBoxes)) {
+                                            personBoxes.push(o.bbox);
                                         }
                                     });
+                                    var persons = personBoxes.length;
                                     if (persons > 1) {
                                         detectedObjects["extra_person"] =
                                             (detectedObjects["extra_person"] || 0) + 1;
@@ -315,11 +318,30 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
                                         }
                                     });
                                 }
-                            }, 1500);
+                            }, 1000);
                         });
                     });
                 });
             });
+        });
+    }
+
+    /**
+     * Does a COCO-SSD box overlap (IoU >= 0.4) any box already counted?
+     *
+     * @param {number[]} box [x, y, width, height]
+     * @param {Array<number[]>} boxes Boxes already counted.
+     * @returns {boolean} True when the box is mostly the same object as one already counted.
+     */
+    function overlapsAny(box, boxes) {
+        return boxes.some(function(b) {
+            var x1 = Math.max(box[0], b[0]);
+            var y1 = Math.max(box[1], b[1]);
+            var x2 = Math.min(box[0] + box[2], b[0] + b[2]);
+            var y2 = Math.min(box[1] + box[3], b[1] + b[3]);
+            var inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+            var union = box[2] * box[3] + b[2] * b[3] - inter;
+            return union > 0 && inter / union >= 0.4;
         });
     }
 
@@ -372,6 +394,47 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
     }
 
     // ── Step 0 — Rules ──────────────────────────────────────────────────────
+
+    /**
+     * Stop the wizard in browsers the exam monitor cannot support: no camera or
+     * screen-sharing API, or no Window Management API (multiple-monitor
+     * detection, Chromium >= 100 only). Shows the supported-browser list.
+     *
+     * @returns {boolean} True when the browser is supported.
+     */
+    function wizardEnvironmentSupported() {
+        var missing = [];
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            missing.push(I18n.get('ui_webcam_access'));
+        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+            missing.push(I18n.get('ui_screen_sharing'));
+        }
+        if (!(window.screen && typeof window.screen.isExtended === 'boolean')) {
+            missing.push(I18n.get('ui_multiple_monitor_detection'));
+        }
+        if (!missing.length) {
+            return true;
+        }
+        var wrap = document.getElementById('tagwiz-wrap');
+        if (wrap) {
+            var box = document.createElement('div');
+            box.className = 'alert alert-danger';
+            box.setAttribute('role', 'alert');
+            var title = document.createElement('strong');
+            title.textContent = I18n.get('ui_unsupported_browser');
+            var text = document.createElement('p');
+            text.className = 'mb-0';
+            text.textContent = I18n.get('monitor_missing', missing.join(', ')) + ' ' + I18n.get('ui_supported_browsers');
+            box.appendChild(title);
+            box.appendChild(text);
+            while (wrap.firstChild) {
+                wrap.removeChild(wrap.firstChild);
+            }
+            wrap.appendChild(box);
+        }
+        return false;
+    }
 
     /**
      * Initialise the rules step as a slide-by-slide walkthrough.
@@ -468,9 +531,13 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
             startAI(video);
 
             try {
-                mediaRecorder = recordingFormat.mimeType
-                    ? new MediaRecorder(stream, {mimeType: recordingFormat.mimeType})
-                    : new MediaRecorder(stream);
+                // Cap the bitrate: browsers default to ~2.5 Mbps, which pushes a
+                // 45-second scan past common PHP post_max_size limits (8 MB).
+                var recorderOptions = {videoBitsPerSecond: 1000000};
+                if (recordingFormat.mimeType) {
+                    recorderOptions.mimeType = recordingFormat.mimeType;
+                }
+                mediaRecorder = new MediaRecorder(stream, recorderOptions);
             } catch (e) {
                 setStatus('tagwiz-rs-status',
                     I18n.get('ui_video_recording_could_not_start_in_this_browser_please_use_a_current_desktop_brows'),
@@ -508,6 +575,8 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
                             started = true;
                             elapsed = 0;
                             recordedChunks = [];
+                            // A redo starts from zero: objects seen in the previous take must not carry over.
+                            detectedObjects = {};
                             mediaRecorder.start();
                             dot.classList.add('is-recording');
                             startBtn.disabled = false;
@@ -648,6 +717,7 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
      */
     function initSelfie() {
         var video       = el('tagwiz-selfie-video');
+        var videoWrap   = video ? video.closest('.tagwiz-video-wrap') : null;
         var captureBtn  = el('tagwiz-selfie-capture');
         var retakeBtn   = el('tagwiz-selfie-retake');
         var previewWrap = el('tagwiz-selfie-preview-wrap');
@@ -938,6 +1008,9 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
                 }
                 previewImg.src = URL.createObjectURL(blob);
                 previewWrap.style.display = 'block';
+                if (videoWrap) {
+                    videoWrap.style.display = 'none';
+                }
                 if (selfieCanvas) {
                     selfieCanvas.style.display = 'none';
                 }
@@ -955,6 +1028,9 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
         retakeBtn.addEventListener('click', function() {
             previewImg.src = '';
             previewWrap.style.display = 'none';
+            if (videoWrap) {
+                videoWrap.style.display = '';
+            }
             if (selfieCanvas) {
                 selfieCanvas.style.display = 'block';
             }
@@ -1019,6 +1095,7 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
      */
     function initIdPhoto() {
         var video        = el('tagwiz-id-video');
+        var videoWrap    = video ? video.closest('.tagwiz-video-wrap') : null;
         var captureBtn   = el('tagwiz-id-capture');
         var retakeBtn    = el('tagwiz-id-retake');
         var previewWrap  = el('tagwiz-id-preview-wrap');
@@ -1042,6 +1119,76 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
 
         /* Hoisted loop variables for validateImage - avoids no-inner-declarations lint error */
         var bi, lumaSum, lumaCount, avgLuma, ly, lx, idx, g, gU, gD, gL, gR, lapSum, lapCount;
+
+        /* Green-box check. Auto-capture must not fire on a face alone: something new, with the
+           edges of printed text, has to appear inside the guide box compared with the empty box
+           remembered when the step started. The camera button still captures manually. */
+        var boxCanvas = document.createElement('canvas');
+        boxCanvas.width  = 128;
+        boxCanvas.height = 96;
+        var boxCtx = boxCanvas.getContext('2d');
+        var boxBaseline = null;
+        var boxBaselineFrames = 0;
+        /* Guide box geometry in the 128x96 sample, mirroring .tagwiz-id-guide (68% wide, 8% bottom gap). */
+        var bx0 = Math.round(128 * 0.16);
+        var bx1 = Math.round(128 * 0.84);
+        var by1 = Math.round(96 * 0.92);
+        var by0 = by1 - Math.round((bx1 - bx0) * 54 / 85.6);
+        var bxi, byi, bp, bk, bluma, bchanged, btotal, bedgeSum, bedgeCount;
+
+        /**
+         * Luma of the current frame, downscaled to 128x96.
+         *
+         * @returns {Float32Array} One luma value per sample pixel.
+         */
+        function sampleLuma() {
+            boxCtx.drawImage(video, 0, 0, 128, 96);
+            var d = boxCtx.getImageData(0, 0, 128, 96).data;
+            var out = new Float32Array(128 * 96);
+            for (bk = 0, bp = 0; bk < d.length; bk += 4, bp++) {
+                out[bp] = 0.299 * d[bk] + 0.587 * d[bk + 1] + 0.114 * d[bk + 2];
+            }
+            return out;
+        }
+
+        /**
+         * Is there an ID-like object inside the guide box?
+         *
+         * The first three scans remember the empty box as baseline. Afterwards at least 35% of the
+         * box must differ clearly from that baseline and the box must contain enough edges
+         * (printed text, card borders).
+         *
+         * @returns {boolean} True when the box content looks like a card placed after the step began.
+         */
+        function idInBox() {
+            bluma = sampleLuma();
+            if (boxBaselineFrames < 3) {
+                if (!boxBaseline) {
+                    boxBaseline = new Float32Array(bluma);
+                } else {
+                    for (bk = 0; bk < bluma.length; bk++) {
+                        boxBaseline[bk] = (boxBaseline[bk] + bluma[bk]) / 2;
+                    }
+                }
+                boxBaselineFrames++;
+                return false;
+            }
+            bchanged = 0; btotal = 0; bedgeSum = 0; bedgeCount = 0;
+            for (byi = by0; byi < by1; byi++) {
+                for (bxi = bx0; bxi < bx1; bxi++) {
+                    bp = byi * 128 + bxi;
+                    btotal++;
+                    if (Math.abs(bluma[bp] - boxBaseline[bp]) > 30) {
+                        bchanged++;
+                    }
+                    if (byi > by0 && byi < by1 - 1 && bxi > bx0 && bxi < bx1 - 1) {
+                        bedgeSum += Math.abs(4 * bluma[bp] - bluma[bp - 128] - bluma[bp + 128] - bluma[bp - 1] - bluma[bp + 1]);
+                        bedgeCount++;
+                    }
+                }
+            }
+            return btotal > 0 && bedgeCount > 0 && (bchanged / btotal) >= 0.35 && (bedgeSum / bedgeCount) >= 6;
+        }
 
         /**
          * Update the guide border colour (via CSS custom property) and label text.
@@ -1145,6 +1292,14 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
                 return;
             }
 
+            /* Something must actually be inside the guide box */
+            if (!idInBox()) {
+                cancelCountdown();
+                stableFrames = 0;
+                setGuide('rgba(156,163,175,.80)', I18n.get('ui_place_your_id_inside_the_green_box'));
+                setStatus('tagwiz-id-status', I18n.get('ui_no_id_in_the_green_box'), 'warning');
+                return;
+            }
             /* All good */
             stableFrames++;
             setGuide('rgba(34,197,94,.85)', I18n.get('ui_hold_still'));
@@ -1262,6 +1417,7 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
                 }
                 previewImg.src = URL.createObjectURL(blob);
                 previewWrap.style.display = 'block';
+                if (videoWrap) { videoWrap.style.display = 'none'; }
                 captureBtn.style.display  = 'none';
                 retakeBtn.style.display   = 'inline-block';
                 if (guideEl) { guideEl.style.display = 'none'; }
@@ -1281,6 +1437,7 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
         retakeBtn.addEventListener('click', function() {
             previewImg.src = '';
             previewWrap.style.display = 'none';
+            if (videoWrap) { videoWrap.style.display = ''; }
             captureBtn.style.display  = 'inline-block';
             retakeBtn.style.display   = 'none';
             nextBtn.disabled = true;
@@ -1441,6 +1598,10 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
         var wrap = el('tagwiz-wrap');
         if (wrap) {
             wrap.style.display = '';
+        }
+        if (!wizardEnvironmentSupported()) {
+            // The wrap now shows the unsupported-browser notice over the whole page.
+            return;
         }
         showStep(0);
         initRules();

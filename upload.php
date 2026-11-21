@@ -41,6 +41,17 @@ file_put_contents($logfile, date('[H:i:s] ') . "HIT\n", FILE_APPEND);
 
 try {
     require_login();
+
+    $toolarge = \quizaccess_tagproctoring\local\media_validator::request_too_large();
+    if ($toolarge !== '') {
+        http_response_code(413);
+        echo json_encode([
+            'status' => 'error',
+            'message' => get_string('error_upload_too_large', 'quizaccess_tagproctoring', $toolarge),
+        ]);
+        exit;
+    }
+
     require_sesskey();
 
     $quizid = required_param('quizid', PARAM_INT);
@@ -89,7 +100,14 @@ try {
         $f->delete();
     }
 
-    $fs->create_file_from_pathname($fileinfo, $_FILES['video']['tmp_name']);
+    $store = \quizaccess_tagproctoring\local\s3_store::from_config();
+    if ($store) {
+        $store->delete_prefix($store->object_key($quizid, (int) $USER->id, 'roomscan'));
+    }
+    if (!$store || !$store->put_file($store->object_key($quizid, (int) $USER->id, 'roomscan', $filename),
+            $_FILES['video']['tmp_name'], 'video/webm')) {
+        $fs->create_file_from_pathname($fileinfo, $_FILES['video']['tmp_name']);
+    }
 
     $record = (object) [
         'quizid' => $quizid,
@@ -158,6 +176,8 @@ try {
     ]);
 } catch (Throwable $e) {
     ob_end_clean();
+
+    file_put_contents($logfile, date('[H:i:s] ') . 'ERROR ' . get_class($e) . ': ' . $e->getMessage() . "\n", FILE_APPEND);
 
     http_response_code(500);
 

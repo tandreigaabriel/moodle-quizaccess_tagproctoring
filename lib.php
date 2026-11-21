@@ -49,6 +49,11 @@ function quizaccess_tagproctoring_pluginfile($course, $cm, $context, $filearea, 
     $file = $fs->get_file($context->id, 'quizaccess_tagproctoring', $filearea, $itemid, $filepath, $filename);
 
     if (!$file) {
+        // Media kept in the object store: hand the browser a short-lived presigned URL.
+        $store = \quizaccess_tagproctoring\local\s3_store::from_config();
+        if ($store && in_array($filearea, \quizaccess_tagproctoring\local\s3_store::AREAS, true) && $filepath === '/') {
+            redirect($store->presigned_url($store->object_key((int) $cm->instance, (int) $itemid, $filearea, $filename)));
+        }
         return false;
     }
 
@@ -92,6 +97,7 @@ function quizaccess_tagproctoring_calculate_attempt_risk(
         'multiplescreen'  => (int) (get_config($plg, 'risk_score_multiplescreen') ?: 50),
         'multiplefaces'   => 40,
         'noface'          => 20,
+        'faceaway'        => 20,
     ];
     $medrisk = [
         'fullscreenexit'   => (int) (get_config($plg, 'risk_score_fullscreenexit') ?: 20),
@@ -100,6 +106,7 @@ function quizaccess_tagproctoring_calculate_attempt_risk(
         'visibilityhidden' => (int) (get_config($plg, 'risk_score_visibilityhidden') ?: 10),
         'copypaste'        => (int) (get_config($plg, 'risk_score_copypaste') ?: 10),
         'devtools'         => (int) (get_config($plg, 'risk_score_devtools') ?: 5),
+        'faceturn'         => 10,
         'capabilitywarning' => 20,
     ];
     $scanscore       = (int) (get_config($plg, 'risk_score_suspicious_scan') ?: 30);
@@ -132,6 +139,9 @@ function quizaccess_tagproctoring_calculate_attempt_risk(
             $score += 10; // Unknown, no face detected in selfie.
         }
     }
+
+    // The report shows the score out of 100; keep it on that scale.
+    $score = min($score, 100);
 
     $risk = $score >= $thresholdhigh ? 'high' : ($score >= $thresholdmedium ? 'medium' : 'low');
 

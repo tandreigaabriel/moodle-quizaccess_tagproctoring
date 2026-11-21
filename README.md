@@ -13,26 +13,26 @@ TAG Proctoring is a quiz access rule plugin for Moodle that enables lightweight 
 
 ### Pre-exam wizard
 
-- Room scan video recording with AI-assisted object detection (phones, books, laptops, extra people, and configurable object classes)
+- Room scan video recording with AI-assisted object detection (phones, books, laptops, extra people, and configurable object classes) — detection runs every second; an object counts only when seen in at least "Minimum detections" intervals, a second person must be a separate confident detection, and "Redo" starts the count from zero
 - Selfie capture with animated guide, auto-capture countdown, and blur/brightness/face validation
-- Photo ID capture with alignment guide box, face detection, and auto-capture
+- Photo ID capture with alignment guide box and face detection; auto-capture fires only once an ID-like object is inside the green box (the camera button always works); the captured photo replaces the live preview
 - Screen share prompt with surface-type enforcement (tab share blocked, full-screen or monitor required)
-- Multi-monitor detection — blocks exam start when more than one display is active
+- Multi-monitor detection — blocks the exam while more than one display is active; the block lifts by itself when the extra display is unplugged and returns if one is connected during the attempt (Chromium only)
 - Animated fullscreen takeover overlay with escalating warnings on repeated exits
-- Mobile and unsupported browser blocking with clear messaging
+- Mobile and unsupported browser blocking with clear messaging — Firefox and Safari are blocked before the wizard because they cannot detect a second monitor; the notice lists the supported browsers
 
 ### In-exam monitoring
 
-- Periodic webcam screenshots (configurable interval and cap)
-- Periodic screen-share screenshots
-- Event logging: tab switch, window blur, copy/paste, DevTools open, context menu, fullscreen exit
-- Face-turn detection via AI (logs `faceturn` event after configurable threshold)
+- Evidence screenshots on suspicious events (tab switch, window blur, right-click, face away, face turned, second person) — from the shared screen when available, from the webcam for face events; rate-limited and capped per attempt
+- Periodic webcam evidence every "Screenshot interval" seconds (minimum 10), counted against "Max screenshots per attempt"
+- Event logging: tab switch, window blur, copy/paste, DevTools open, context menu, fullscreen exit, multiple screens, screen-share stop
+- Face presence via AI (BlazeFace, every 3 s): `faceaway` when no face is visible for ~9 s, `faceturn` when the head stays turned to the side for ~9 s (threshold = "Face-turn sensitivity"), `multiplefaces` when a second person is in front of the camera — all with a webcam screenshot and a risk score
 - Status bar showing webcam dot, screen-share dot, and elapsed timer
 
 ### Instructor report
 
 - Three-level drill-down: students → quiz sessions → evidence panel
-- Per-attempt risk score and risk level (High / Needs Review / Valid)
+- Per-attempt risk score (0–100) and risk level (High / Needs Review / Valid); duration shown in seconds under one minute
 - AI summary block: plain-English event breakdown per attempt
 - Flags panel with violation categories and screenshot carousel
 - Room scan video playback in the report
@@ -41,7 +41,7 @@ TAG Proctoring is a quiz access rule plugin for Moodle that enables lightweight 
 - Manual override (mark attempt as Valid regardless of score)
 - Mark attempt as Reviewed
 - Grant rescan (allow student to re-record room scan)
-- Delete screenshots, delete events, delete scan data per student
+- Delete screenshots, delete events, delete scan data per student; deleting a quiz attempt from Moodle's results flags the student for a new readiness check at the next attempt
 - CSV export of all attempt data
 - Search/filter student list
 
@@ -50,7 +50,8 @@ TAG Proctoring is a quiz access rule plugin for Moodle that enables lightweight 
 - Risk scoring with configurable per-event weights and threshold boundaries
 - Post-attempt email alerts to configured recipients when risk is Medium or High
 - Grades table proctoring column showing risk badge in Moodle gradebook
-- Automatic data retention cleanup via scheduled task
+- Automatic data retention cleanup via scheduled task (also removes rows left behind by deleted attempts)
+- Optional S3-compatible object storage for all media (AWS S3, Supabase Storage, MinIO, Cloudflare R2): uploads go straight to the bucket, invigilators open them through 10-minute presigned links, and deletes, retention and privacy requests remove the objects too
 - Full Moodle Privacy API (GDPR data export and deletion)
 - Licence key management with automatic activation
 
@@ -59,7 +60,9 @@ TAG Proctoring is a quiz access rule plugin for Moodle that enables lightweight 
 - Moodle 4.5 or later
 - PHP 8.1 or later
 - HTTPS required — webcam, screen share, and MediaRecorder APIs require a secure context
-- Modern browser with support for `getUserMedia`, `getDisplayMedia`, and `MediaRecorder` (Chrome 72+, Edge 79+, Firefox 66+)
+- Browser: Google Chrome, Microsoft Edge, Brave or Opera — Chromium 100 or newer on Windows, macOS or Linux (the Window Management API is needed for multi-monitor detection). Firefox, Safari, phones and tablets are blocked with a notice.
+- PHP `upload_max_filesize` and `post_max_size` of at least 32M (a 45-second room scan is about 5–6 MB; the student sees the server limit if an upload is rejected)
+- Storage: by default all media goes through the Moodle File API (so `tool_objectfs` can offload it); alternatively enable the plugin's own "Object storage (S3)" section to keep videos and photos in an S3-compatible bucket. The retention task deletes expired and orphaned files wherever they are stored
 - A TAG Proctoring licence key for the site (60-day trial key or paid licence, see *Commercial licence*)
 
 ## Commercial licence
@@ -111,14 +114,24 @@ licence key for that site.
 | Enable screenshots          | Master switch for in-exam screenshot capture                            |
 | Enable event logging        | Master switch for in-exam event tracking                                |
 | Data retention period       | Days before scan videos and screenshots are purged (default: 30)        |
-| Screenshot interval         | Seconds between automatic screenshots (default: 30)                     |
+| Screenshot interval         | Seconds between periodic webcam captures, minimum 10 (default: 30)     |
 | Max screenshots per attempt | Storage cap per attempt (default: 20)                                   |
 | AI confidence threshold     | Minimum confidence for object detection (default: 0.35)                 |
-| Flagged object types        | Comma-separated list of COCO-SSD classes that trigger a suspicious flag |
+| Flagged object types        | One COCO-SSD class per line that triggers a suspicious flag             |
+| Minimum detections          | Intervals (~1 s) an object must be seen in before it counts (default: 3)|
+| Face-turn sensitivity       | Nose offset / eye distance above which the head counts as turned (0.30)|
 | High risk threshold         | Risk score at or above which an attempt is marked High (default: 60)    |
 | Medium risk threshold       | Score at or above which an attempt is marked Needs Review (default: 20) |
 | Email alerts                | Enable post-attempt alert emails                                        |
 | Alert recipients            | Comma-separated email addresses; defaults to quiz teachers when empty   |
+| Object storage (S3)         | Enable, endpoint URL, region, bucket, access key, secret, path-style, key prefix — see below |
+
+### Object storage (S3-compatible)
+
+1. Create a private bucket and an access key with read/write/delete on it.
+2. Fill in the "Object storage (S3)" settings: endpoint (AWS: `https://s3.<region>.amazonaws.com`; Supabase: `https://<project>.storage.supabase.co/storage/v1/s3`; MinIO: your server URL), region, bucket, key, secret. Keep "Path-style addressing" on for Supabase/MinIO/R2; turn it off only for AWS virtual-hosted URLs.
+3. Tick "Store media in an S3-compatible bucket". From now on new room-scan videos, selfies, ID photos and screenshots are uploaded to `<prefix>/<quiz id>/<user id>/<area>/<file>`; files already in Moodle keep being served from Moodle. If an upload to the bucket fails, the file is kept in Moodle instead.
+4. The plugin signs requests itself (AWS Signature V4) and does not need the AWS SDK or `tool_objectfs`. Invigilators receive 10-minute presigned links, so the bucket can stay private.
 
 ### Per-quiz settings — Quiz settings → Extra restrictions on attempts
 

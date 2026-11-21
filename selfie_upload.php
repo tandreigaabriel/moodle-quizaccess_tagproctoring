@@ -30,6 +30,17 @@ header('Content-Type: application/json');
 
 try {
     require_login();
+
+    $toolarge = \quizaccess_tagproctoring\local\media_validator::request_too_large();
+    if ($toolarge !== '') {
+        http_response_code(413);
+        echo json_encode([
+            'status' => 'error',
+            'message' => get_string('error_upload_too_large', 'quizaccess_tagproctoring', $toolarge),
+        ]);
+        exit;
+    }
+
     require_sesskey();
 
     $quizid = required_param('quizid', PARAM_INT);
@@ -65,7 +76,14 @@ try {
         $f->delete();
     }
 
-    $fs->create_file_from_pathname($fileinfo, $_FILES['selfie']['tmp_name']);
+    $store = \quizaccess_tagproctoring\local\s3_store::from_config();
+    if ($store) {
+        $store->delete_prefix($store->object_key($quizid, (int) $USER->id, 'selfie'));
+    }
+    if (!$store || !$store->put_file($store->object_key($quizid, (int) $USER->id, 'selfie', $filename),
+            $_FILES['selfie']['tmp_name'], 'image/jpeg')) {
+        $fs->create_file_from_pathname($fileinfo, $_FILES['selfie']['tmp_name']);
+    }
 
     \quizaccess_tagproctoring\local\scan_record::save_image($quizid, (int) $USER->id, 'selfie', $filename);
 

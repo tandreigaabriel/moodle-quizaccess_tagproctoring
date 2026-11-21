@@ -81,9 +81,16 @@ try {
     \quizaccess_tagproctoring\local\media_validator::validate_image($_FILES['screenshot']);
 
     $fs = get_file_storage();
-    // Screen or webcam. PARAM_ALPHA strips everything except letters — safe for filenames.
+    // The source records what produced the screenshot: a periodic 'screen'/'webcam' capture, or the
+    // event that triggered it (tab switch, window blur, right click, face away/turn). The report keys
+    // its per-shot labels off exactly these values, so the allow-list must match the monitor triggers.
+    // PARAM_ALPHA strips everything except letters — safe for use in the filename.
     $source = optional_param('source', 'webcam', PARAM_ALPHA);
-    if (!in_array($source, ['webcam', 'screen'], true)) {
+    $allowedsources = [
+        'webcam', 'screen', 'tabswitch', 'windowblur', 'contextmenu',
+        'faceaway', 'faceturn', 'multiplefaces', 'periodic',
+    ];
+    if (!in_array($source, $allowedsources, true)) {
         throw new moodle_exception('invalidparameter', 'error');
     }
     // Append a short uniqid suffix so concurrent uploads in the same second never collide.
@@ -98,7 +105,11 @@ try {
         'filename' => $filename,
     ];
 
-    $fs->create_file_from_pathname($fileinfo, $_FILES['screenshot']['tmp_name']);
+    $store = \quizaccess_tagproctoring\local\s3_store::from_config();
+    if (!$store || !$store->put_file($store->object_key($quizid, (int) $USER->id, 'screenshots', $filename),
+            $_FILES['screenshot']['tmp_name'], 'image/jpeg')) {
+        $fs->create_file_from_pathname($fileinfo, $_FILES['screenshot']['tmp_name']);
+    }
 
     $DB->insert_record('quizaccess_tagproctoring_screenshots', (object) [
         'quizid' => $quizid,

@@ -60,9 +60,9 @@
             {{#summary}}{{> quizaccess_tagproctoring/report_summary}}{{/summary}}
             <div class="tagrep-session-body">
                 <div class="tagrep-session-photo"><div style="display:flex;gap:8px;align-items:flex-start;">
-                    {{#scan.selfie_url}}<a href="{{scan.selfie_url}}" target="_blank" rel="noopener"><img src="{{scan.selfie_url}}" class="tagrep-selfie-img" alt="{{#str}} report_label_selfie, quizaccess_tagproctoring {{/str}}"></a>{{/scan.selfie_url}}
+                    {{#scan.selfie_url}}<a href="{{scan.selfie_url}}" target="_blank" rel="noopener"><img src="{{scan.selfie_url}}" class="tagrep-selfie-img" onerror="this.classList.add('tagrep-selfie-img--missing')" alt="{{#str}} report_label_selfie, quizaccess_tagproctoring {{/str}}"></a>{{/scan.selfie_url}}
                     {{^scan.selfie_url}}<div class="tagrep-selfie-ph">{{#str}} mmr_no_selfie, quizaccess_tagproctoring {{/str}}</div>{{/scan.selfie_url}}
-                    {{#scan.idphoto_url}}<a href="{{scan.idphoto_url}}" target="_blank" rel="noopener"><img src="{{scan.idphoto_url}}" class="tagrep-selfie-img" alt="{{#str}} report_label_idphoto, quizaccess_tagproctoring {{/str}}"></a>{{/scan.idphoto_url}}
+                    {{#scan.idphoto_url}}<a href="{{scan.idphoto_url}}" target="_blank" rel="noopener"><img src="{{scan.idphoto_url}}" class="tagrep-selfie-img" onerror="this.classList.add('tagrep-selfie-img--missing')" alt="{{#str}} report_label_idphoto, quizaccess_tagproctoring {{/str}}"></a>{{/scan.idphoto_url}}
                 </div></div>
                 <div class="tagrep-session-info">{{#info}}<div class="tagrep-info-row"><span class="tagrep-info-lbl">{{label}}</span><span class="tagrep-info-val">{{value}}</span></div>{{/info}}</div>
                 {{#identity}}<div class="tagrep-identity-row"><span class="tagrep-badge" style="background:{{color}};">{{label}}</span>

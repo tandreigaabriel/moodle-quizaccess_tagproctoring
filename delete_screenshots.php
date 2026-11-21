@@ -45,7 +45,11 @@ try {
     $fs = get_file_storage();
     $screenshots = $DB->get_records('quizaccess_tagproctoring_screenshots', ['attemptid' => $attemptid]);
 
+    $store = \quizaccess_tagproctoring\local\s3_store::from_config();
     foreach ($screenshots as $shot) {
+        if ($store) {
+            $store->delete($store->object_key((int) $shot->quizid, (int) $shot->userid, 'screenshots', $shot->filename));
+        }
         $file = $fs->get_file(
             $context->id,
             'quizaccess_tagproctoring',

@@ -31,4 +31,10 @@ $observers = [
         'priority'  => 0,
         'internal'  => false,
     ],
+    [
+        'eventname' => '\mod_quiz\event\attempt_deleted',
+        'callback'  => '\quizaccess_tagproctoring\local\observer::attempt_deleted',
+        'priority'  => 0,
+        'internal'  => false,
+    ],
 ];

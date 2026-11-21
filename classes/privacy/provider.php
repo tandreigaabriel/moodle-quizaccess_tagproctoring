@@ -409,6 +409,10 @@ class provider implements
             ['quizid' => $quizid]
         );
         get_file_storage()->delete_area_files($context->id, 'quizaccess_tagproctoring');
+        $store = \quizaccess_tagproctoring\local\s3_store::from_config();
+        if ($store) {
+            $store->delete_prefix(dirname($store->object_key($quizid, 0, 'x')) . '/');
+        }
     }
 
     /**
@@ -478,8 +482,12 @@ class provider implements
      */
     private static function delete_user_in_context(\context_module $context, int $quizid, int $userid): void {
         global $DB;
+        $store = \quizaccess_tagproctoring\local\s3_store::from_config();
         foreach (['roomscan', 'selfie', 'idphoto', 'screenshots'] as $area) {
             get_file_storage()->delete_area_files($context->id, 'quizaccess_tagproctoring', $area, $userid);
+            if ($store) {
+                $store->delete_prefix($store->object_key($quizid, $userid, $area));
+            }
         }
         foreach (['scan', 'screenshots', 'events', 'time'] as $table) {
             $DB->delete_records('quizaccess_tagproctoring_' . $table, ['quizid' => $quizid, 'userid' => $userid]);
