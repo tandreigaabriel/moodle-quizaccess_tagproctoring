@@ -106,8 +106,12 @@ try {
     ];
 
     $store = \quizaccess_tagproctoring\local\s3_store::from_config();
-    if (!$store || !$store->put_file($store->object_key($quizid, (int) $USER->id, 'screenshots', $filename),
-            $_FILES['screenshot']['tmp_name'], 'image/jpeg')) {
+    $stored = false;
+    if ($store) {
+        $key = $store->object_key($quizid, (int) $USER->id, 'screenshots', $filename);
+        $stored = $store->put_file($key, $_FILES['screenshot']['tmp_name'], 'image/jpeg');
+    }
+    if (!$stored) {
         $fs->create_file_from_pathname($fileinfo, $_FILES['screenshot']['tmp_name']);
     }
 

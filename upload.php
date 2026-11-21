@@ -101,11 +101,13 @@ try {
     }
 
     $store = \quizaccess_tagproctoring\local\s3_store::from_config();
+    $stored = false;
     if ($store) {
         $store->delete_prefix($store->object_key($quizid, (int) $USER->id, 'roomscan'));
+        $key = $store->object_key($quizid, (int) $USER->id, 'roomscan', $filename);
+        $stored = $store->put_file($key, $_FILES['video']['tmp_name'], 'video/webm');
     }
-    if (!$store || !$store->put_file($store->object_key($quizid, (int) $USER->id, 'roomscan', $filename),
-            $_FILES['video']['tmp_name'], 'video/webm')) {
+    if (!$stored) {
         $fs->create_file_from_pathname($fileinfo, $_FILES['video']['tmp_name']);
     }
 
