@@ -2,7 +2,14 @@
 
 ## Unreleased
 
+### Added
+- Periodic webcam evidence: "Screenshot interval" (seconds, min 10) now takes a webcam capture at that interval, capped by "Max screenshots per attempt" (source: periodic). Before, the setting had no effect.
+- Face turned away: "Face-turn sensitivity" now drives a real check (nose offset relative to the eye distance, 3 polls ≈ 9 s) that logs a `faceturn` event (10 risk points, capped ×3) with a webcam capture.
+
 ### Fixed
+- Room scan: "Extra Person in Room" / "Multiple Faces Detected" were shown on the report after a single misdetected frame; the report now lists only objects seen in at least "Minimum detections before flagging" intervals, and a second person must be a separate, confident (≥ 0.5) box. Detection now runs every 1 s.
+- Report: duration shows seconds under one minute ("23 s"); risk score is capped at 100; session cards fill the available width (no empty third column) with the action buttons on one row; flags panel scrolls into view and takes less empty space; missing selfie/ID thumbnails show a placeholder.
+- Wizard: on laptops (≤ 820 px tall) the captured selfie/ID preview is limited so the buttons stay visible.
 - Deleting a student's quiz attempt (quiz results page) now flags their room scan, selfie and ID photo as needing a new readiness check; the next attempt starts the wizard again instead of skipping it. Previous evidence is kept until the new scan replaces it (observer on mod_quiz attempt_deleted, with a PHPUnit test).
 - Report: the session summary now lists "exam window focus loss" (windowblur) events; before, an attempt scored for them could still read "No violations detected".
 - Wizard: the captured selfie / ID photo now replaces the live camera box instead of appearing under it (no empty black box, no extra scrolling).

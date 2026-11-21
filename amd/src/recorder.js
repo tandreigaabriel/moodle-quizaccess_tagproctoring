@@ -284,7 +284,7 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
                                     return;
                                 }
                                 tfModel.detect(videoEl).then(function(objects) {
-                                    var persons = 0;
+                                    var personBoxes = [];
                                     objects.forEach(function(o) {
                                         if (o.score < (cfg.aiConfidence || 0.35)) {
                                             return;
@@ -294,10 +294,13 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
                                         if (flagged.includes(cls)) {
                                             detectedObjects[cls] = (detectedObjects[cls] || 0) + 1;
                                         }
-                                        if (cls === "person") {
-                                            persons++;
+                                        // A second person must be a confident, separate box: COCO-SSD often
+                                        // returns two overlapping boxes for the same student.
+                                        if (cls === "person" && o.score >= 0.5 && !overlapsAny(o.bbox, personBoxes)) {
+                                            personBoxes.push(o.bbox);
                                         }
                                     });
+                                    var persons = personBoxes.length;
                                     if (persons > 1) {
                                         detectedObjects["extra_person"] =
                                             (detectedObjects["extra_person"] || 0) + 1;
@@ -315,11 +318,30 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
                                         }
                                     });
                                 }
-                            }, 1500);
+                            }, 1000);
                         });
                     });
                 });
             });
+        });
+    }
+
+    /**
+     * Does a COCO-SSD box overlap (IoU >= 0.4) any box already counted?
+     *
+     * @param {number[]} box [x, y, width, height]
+     * @param {Array<number[]>} boxes Boxes already counted.
+     * @returns {boolean} True when the box is mostly the same object as one already counted.
+     */
+    function overlapsAny(box, boxes) {
+        return boxes.some(function(b) {
+            var x1 = Math.max(box[0], b[0]);
+            var y1 = Math.max(box[1], b[1]);
+            var x2 = Math.min(box[0] + box[2], b[0] + b[2]);
+            var y2 = Math.min(box[1] + box[3], b[1] + b[3]);
+            var inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+            var union = box[2] * box[3] + b[2] * b[3] - inter;
+            return union > 0 && inter / union >= 0.4;
         });
     }
 

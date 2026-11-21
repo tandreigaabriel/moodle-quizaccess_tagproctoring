@@ -389,6 +389,7 @@ class quizaccess_tagproctoring extends quizaccess_tagproctoring_parent_class_ali
             'cmid'                => (int) $this->quizobj->get_cm()->id,
             'attemptid'           => (int) $attemptid,
             'interval'            => $interval,
+            'maxscreenshots'      => (int) (get_config('quizaccess_tagproctoring', 'maxscreenshots') ?: 20),
             'enablescreenshots'   => $enablescreenshots,
             'enableevents'        => $enableevents,
             'faceTurnSensitivity' => $faceturnsensitivity,

@@ -101,6 +101,7 @@ function quizaccess_tagproctoring_calculate_attempt_risk(
         'visibilityhidden' => (int) (get_config($plg, 'risk_score_visibilityhidden') ?: 10),
         'copypaste'        => (int) (get_config($plg, 'risk_score_copypaste') ?: 10),
         'devtools'         => (int) (get_config($plg, 'risk_score_devtools') ?: 5),
+        'faceturn'         => 10,
         'capabilitywarning' => 20,
     ];
     $scanscore       = (int) (get_config($plg, 'risk_score_suspicious_scan') ?: 30);
@@ -133,6 +134,9 @@ function quizaccess_tagproctoring_calculate_attempt_risk(
             $score += 10; // Unknown, no face detected in selfie.
         }
     }
+
+    // The report shows the score out of 100; keep it on that scale.
+    $score = min($score, 100);
 
     $risk = $score >= $thresholdhigh ? 'high' : ($score >= $thresholdmedium ? 'medium' : 'low');
 

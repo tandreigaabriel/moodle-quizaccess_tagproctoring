@@ -182,6 +182,7 @@ function quizaccess_tagproctoring_pluginfile_url(context $ctx, string $area, int
     )->out();
 }
 
+$mindetections = (int) (get_config('quizaccess_tagproctoring', 'ai_min_detections') ?: 3);
 $studentsdata = [];
 
 foreach ($attempts as $attempt) {
@@ -249,7 +250,12 @@ foreach ($attempts as $attempt) {
             $scan->userid,
             $scan->idphoto_filename ?? ''
         ),
-        'objects'             => $scan->scan_objects ? (json_decode($scan->scan_objects, true) ?: []) : [],
+        // Only objects seen in at least "ai_min_detections" intervals (the same threshold that
+        // marks the scan suspicious); single-frame misdetections are not shown to the teacher.
+        'objects'             => $scan->scan_objects ? array_filter(
+            json_decode($scan->scan_objects, true) ?: [],
+            static fn($count): bool => (int) $count >= $mindetections
+        ) : [],
         'suspicious'          => !empty($scan->scan_suspicious),
         'face_match_verified' => isset($scan->face_match_verified) ? (int) $scan->face_match_verified : null,
         'face_match_distance' => isset($scan->face_match_distance) ? (float) $scan->face_match_distance : null,

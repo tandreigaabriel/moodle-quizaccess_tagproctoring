@@ -122,6 +122,7 @@ function(Str, Templates, Notification, I18n) {
             webcam:      S.evidence_webcam,
             faceaway:    S.evidence_webcam_faceaway,
             faceturn:    S.evidence_webcam_faceturn,
+            periodic:    S.evidence_webcam_periodic,
         };
         return labels[source] || (source ? source.replace(/_/g, ' ') : (S.evidence_default));
     }
@@ -152,7 +153,11 @@ function(Str, Templates, Notification, I18n) {
         if (!start || !end) {
             return '—';
         }
-        var m = Math.round((end - start) / 60);
+        var secs = Math.max(0, end - start);
+        if (secs < 60) {
+            return I18n.get('report_seconds', secs);
+        }
+        var m = Math.round(secs / 60);
         return m >= 60 ? I18n.get('report_hours_minutes', {hours: Math.floor(m / 60), minutes: m % 60}) :
             I18n.get('report_minutes', m);
     }
@@ -223,6 +228,7 @@ function(Str, Templates, Notification, I18n) {
             copypaste:         S.summary_label_copypaste,
             devtools:          S.summary_label_devtools,
             faceaway:          S.summary_label_faceaway,
+            faceturn:          S.summary_label_faceturn,
             noface:            S.summary_label_noface,
             multiplefaces:     S.summary_label_multiplefaces,
             contextmenu:       S.summary_label_contextmenu,
@@ -232,7 +238,7 @@ function(Str, Templates, Notification, I18n) {
         // High-risk first, then medium/low.
         var order = ['screenshare', 'multiplescreen', 'screensharestop', 'multiplefaces',
                      'fullscreenexit', 'tabswitch', 'windowblur', 'visibilityhidden',
-                     'faceaway', 'noface', 'capabilitywarning', 'copypaste', 'devtools', 'contextmenu'];
+                     'faceaway', 'faceturn', 'noface', 'capabilitywarning', 'copypaste', 'devtools', 'contextmenu'];
         order.forEach(function(t) {
             if (counts[t]) {
                 var n = counts[t];
@@ -574,6 +580,11 @@ function(Str, Templates, Notification, I18n) {
         }
 
         rendered.then(function() {
+        // The flags panel opens below the session cards: bring it into view.
+        var flagsPanel = el('tagrep-panel-flags');
+        if (flagsPanel && flagsPanel.scrollIntoView) {
+            flagsPanel.scrollIntoView({behavior: 'smooth', block: 'start'});
+        }
         if (firstHighlightIdx !== -1) {
             var firstEl = el('tagrep-thumb-' + firstHighlightIdx);
             if (firstEl) {
@@ -987,6 +998,9 @@ function(Str, Templates, Notification, I18n) {
                 // Identity verification buttons (indices 88–89)
                 {key: 'report_identity_mark_verified', component: comp},
                 {key: 'report_identity_mark_failed',   component: comp},
+                {key: 'report_seconds',                component: comp},
+                {key: 'summary_label_faceturn',        component: comp},
+                {key: 'evidence_webcam_periodic',      component: comp},
             ]).then(function(strs) {
                 var i = 0;
                 // VIOLATIONS labels.
@@ -1092,6 +1106,9 @@ function(Str, Templates, Notification, I18n) {
                 // Identity verification buttons.
                 S.report_identity_mark_verified    = strs[i++];
                 S.report_identity_mark_failed      = strs[i++];
+                S.report_seconds                   = strs[i++];
+                S.summary_label_faceturn           = strs[i++];
+                S.evidence_webcam_periodic         = strs[i++];
 
                 renderStudentList(DATA);
             });

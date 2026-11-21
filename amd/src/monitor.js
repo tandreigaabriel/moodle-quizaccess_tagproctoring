@@ -58,6 +58,9 @@ function(Ajax, I18n, Templates, Notification) {
     var lastNoFaceShot  = 0;      // Date.now() of last face-away screenshot
     var multiFaceCount  = 0;      // consecutive 3-s polls with more than one face
     var lastMultiFaceShot = 0;    // Date.now() of last multiple-faces event
+    var faceTurnCount   = 0;      // consecutive 3-s polls with the head turned to the side
+    var lastFaceTurnShot = 0;     // Date.now() of last face-turn event
+    var periodicShots   = 0;      // periodic webcam captures uploaded in this session
 
     // Cached last-good frame so screenshots succeed even when live videos are paused.
     var lastFrameCanvas = null;
@@ -285,7 +288,8 @@ function(Ajax, I18n, Templates, Notification) {
         if (!cfg.enablescreenshots) {
             return;
         }
-        if (['tabswitch', 'windowblur', 'contextmenu', 'faceaway', 'multiplefaces'].indexOf(trigger) === -1) {
+        var allowed = ['tabswitch', 'windowblur', 'contextmenu', 'faceaway', 'multiplefaces', 'faceturn', 'periodic'];
+        if (allowed.indexOf(trigger) === -1) {
             return;
         }
         // Rate limit: skip if an upload is already in-flight or was sent less than 5 s ago.
@@ -300,7 +304,7 @@ function(Ajax, I18n, Templates, Notification) {
         // student's face to understand why the alert fired, not the screen content.
         // All other events (tab switch, window blur, etc.) prefer the screen-share
         // stream so the invigilator can see what the student switched to.
-        var wantWebcam = (trigger === 'faceaway' || trigger === 'multiplefaces');
+        var wantWebcam = ['faceaway', 'multiplefaces', 'faceturn', 'periodic'].indexOf(trigger) !== -1;
         if (!wantWebcam && screenVideo && screenVideo.readyState >= 2 && screenVideo.videoWidth > 0) {
             var w = screenVideo.videoWidth;
             var h = screenVideo.videoHeight;
@@ -341,6 +345,9 @@ function(Ajax, I18n, Templates, Notification) {
             }).then(function() {
                 lastScreenshotSent = Date.now();
                 screenshotInFlight = false;
+                if (trigger === 'periodic') {
+                    periodicShots++;
+                }
             }).catch(function() {
                 screenshotInFlight = false;
             });
@@ -421,7 +428,24 @@ function(Ajax, I18n, Templates, Notification) {
                 if (!lm || lm.length < 3) {
                     return;
                 }
-                // Normal left/right face movement is not treated as cheating evidence.
+                // Head turned clearly to one side: the nose offset from the eye midpoint, relative to
+                // the eye distance, stays above the admin "Face-turn sensitivity" for 3 polls (≈9 s).
+                // BlazeFace landmarks: [rightEye, leftEye, nose, mouth, rightEar, leftEar].
+                var eyeMidX = (lm[0][0] + lm[1][0]) / 2;
+                var eyeDist = Math.abs(lm[1][0] - lm[0][0]) || 1;
+                var turnRatio = Math.abs(lm[2][0] - eyeMidX) / eyeDist;
+                var turnThreshold = parseFloat(cfg.faceTurnSensitivity) || 0.3;
+                if (turnRatio > turnThreshold) {
+                    faceTurnCount++;
+                    if (faceTurnCount >= 3 && Date.now() - lastFaceTurnShot > 30000) {
+                        lastFaceTurnShot = Date.now();
+                        faceTurnCount = 0;
+                        logEvent('faceturn', I18n.get('ui_face_turned_away_for_9_seconds'));
+                        captureScreenshot('faceturn');
+                    }
+                } else {
+                    faceTurnCount = 0;
+                }
             }).catch(function() {});
         }, 3000);
     }
@@ -980,6 +1004,19 @@ function(Ajax, I18n, Templates, Notification) {
             // Log browser and OS info once at session start so invigilators can
             // see what environment the student used without reading raw user-agent strings.
             logEvent('sessionstart', detectBrowser() + ' / ' + detectOS());
+
+            // Periodic webcam evidence: admin "Screenshot interval" (seconds, minimum 10) capped by
+            // "Max screenshots per attempt". Event-triggered captures are not counted here; the
+            // server enforces the overall cap per attempt.
+            var periodicEvery = parseInt(cfg.interval, 10) || 0;
+            var periodicMax = parseInt(cfg.maxscreenshots, 10) || 20;
+            if (cfg.enablescreenshots && periodicEvery > 0) {
+                setInterval(function() {
+                    if (periodicShots < periodicMax) {
+                        captureScreenshot('periodic');
+                    }
+                }, Math.max(periodicEvery, 10) * 1000);
+            }
 
             // Reset quiz timer if the student just completed the pre-exam wizard.
             // recorder.js sets this flag in sessionStorage right before form submit.

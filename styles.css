@@ -1198,7 +1198,7 @@
 /* Sessions grid */
 .tagrep-sessions-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
   gap: 14px;
   padding: 16px;
 }
@@ -1992,4 +1992,21 @@
   .tagwiz-rule-slide { min-height: 150px; }
   .tagwiz-rule-slide { padding: 14px 12px 10px; }
   .tagwiz-video-wrap { max-height: calc(100vh - 450px); }
+  .tagwiz-preview-img { max-height: calc(100vh - 430px); object-fit: contain; background: #000; }
 }
+
+/* Teacher report, round 3 (21.11): equal card rows, placeholder for missing thumbnails, compact flags panel. */
+.tagrep-ai-summary-body { min-height: 2.9em; }
+.tagrep-identity-row { gap: 6px; }
+.tagrep-selfie-img--missing {
+  background: #f3f4f6;
+  border: 1px dashed #d1d5db;
+  color: #9ca3af;
+  font-size: 10px;
+  text-align: center;
+  line-height: 70px;
+  overflow: hidden;
+}
+.tagrep-panel { scroll-margin-top: 80px; }
+.tagrep-flags-layout { min-height: 320px; }
+.tagrep-carousel-area { min-height: 240px; }
