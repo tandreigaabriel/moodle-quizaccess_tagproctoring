@@ -76,7 +76,14 @@ try {
         $f->delete();
     }
 
-    $fs->create_file_from_pathname($fileinfo, $_FILES['selfie']['tmp_name']);
+    $store = \quizaccess_tagproctoring\local\s3_store::from_config();
+    if ($store) {
+        $store->delete_prefix($store->object_key($quizid, (int) $USER->id, 'selfie'));
+    }
+    if (!$store || !$store->put_file($store->object_key($quizid, (int) $USER->id, 'selfie', $filename),
+            $_FILES['selfie']['tmp_name'], 'image/jpeg')) {
+        $fs->create_file_from_pathname($fileinfo, $_FILES['selfie']['tmp_name']);
+    }
 
     \quizaccess_tagproctoring\local\scan_record::save_image($quizid, (int) $USER->id, 'selfie', $filename);
 

@@ -49,6 +49,11 @@ function quizaccess_tagproctoring_pluginfile($course, $cm, $context, $filearea, 
     $file = $fs->get_file($context->id, 'quizaccess_tagproctoring', $filearea, $itemid, $filepath, $filename);
 
     if (!$file) {
+        // Media kept in the object store: hand the browser a short-lived presigned URL.
+        $store = \quizaccess_tagproctoring\local\s3_store::from_config();
+        if ($store && in_array($filearea, \quizaccess_tagproctoring\local\s3_store::AREAS, true) && $filepath === '/') {
+            redirect($store->presigned_url($store->object_key((int) $cm->instance, (int) $itemid, $filearea, $filename)));
+        }
         return false;
     }
 

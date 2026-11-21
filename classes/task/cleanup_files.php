@@ -73,7 +73,14 @@ class cleanup_files extends \core\task\scheduled_task
 
         $scancount = 0;
 
+        $store = \quizaccess_tagproctoring\local\s3_store::from_config();
+
         foreach ($scans as $scan) {
+            if ($store) {
+                foreach (['roomscan', 'selfie', 'idphoto'] as $area) {
+                    $store->delete_prefix($store->object_key((int) $scan->quizid, (int) $scan->userid, $area));
+                }
+            }
             $cm = get_coursemodule_from_instance('quiz', $scan->quizid, 0, false, IGNORE_MISSING);
 
             if ($cm) {
@@ -101,6 +108,9 @@ class cleanup_files extends \core\task\scheduled_task
         $shotcount = 0;
 
         foreach ($shots as $shot) {
+            if ($store) {
+                $store->delete($store->object_key((int) $shot->quiz, (int) $shot->userid, 'screenshots', $shot->filename));
+            }
             $cm = get_coursemodule_from_instance('quiz', $shot->quiz, 0, false, IGNORE_MISSING);
 
             if ($cm) {
@@ -134,6 +144,9 @@ class cleanup_files extends \core\task\scheduled_task
         );
         $orphancount = 0;
         foreach ($orphans as $shot) {
+            if ($store) {
+                $store->delete($store->object_key((int) $shot->quizid, (int) $shot->userid, 'screenshots', $shot->filename));
+            }
             $cm = get_coursemodule_from_instance('quiz', $shot->quizid, 0, false, IGNORE_MISSING);
             if ($cm) {
                 $context = \context_module::instance($cm->id);

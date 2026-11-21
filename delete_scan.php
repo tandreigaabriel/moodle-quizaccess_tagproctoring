@@ -62,6 +62,13 @@ if ($scan) {
         );
     }
 
+    $store = \quizaccess_tagproctoring\local\s3_store::from_config();
+    if ($store) {
+        foreach (['roomscan', 'selfie', 'idphoto'] as $filearea) {
+            $store->delete_prefix($store->object_key($qid, $userid, $filearea));
+        }
+    }
+
     $DB->delete_records('quizaccess_tagproctoring_scan', [
         'id' => $scan->id,
     ]);

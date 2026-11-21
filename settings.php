@@ -360,4 +360,63 @@ if ($ADMIN->fulltree) {
         30,
         PARAM_INT
     ));
+
+    // Object store (S3-compatible) for room-scan videos, selfies, ID photos and screenshots.
+    $settings->add(new admin_setting_heading(
+        'quizaccess_tagproctoring/s3heading',
+        get_string('settings_s3_heading', 'quizaccess_tagproctoring'),
+        get_string('settings_s3_heading_desc', 'quizaccess_tagproctoring')
+    ));
+    $settings->add(new admin_setting_configcheckbox(
+        'quizaccess_tagproctoring/s3_enabled',
+        get_string('settings_s3_enabled', 'quizaccess_tagproctoring'),
+        get_string('settings_s3_enabled_desc', 'quizaccess_tagproctoring'),
+        0
+    ));
+    $settings->add(new admin_setting_configtext(
+        'quizaccess_tagproctoring/s3_endpoint',
+        get_string('settings_s3_endpoint', 'quizaccess_tagproctoring'),
+        get_string('settings_s3_endpoint_desc', 'quizaccess_tagproctoring'),
+        '',
+        PARAM_URL
+    ));
+    $settings->add(new admin_setting_configtext(
+        'quizaccess_tagproctoring/s3_region',
+        get_string('settings_s3_region', 'quizaccess_tagproctoring'),
+        get_string('settings_s3_region_desc', 'quizaccess_tagproctoring'),
+        'eu-west-2',
+        PARAM_ALPHANUMEXT
+    ));
+    $settings->add(new admin_setting_configtext(
+        'quizaccess_tagproctoring/s3_bucket',
+        get_string('settings_s3_bucket', 'quizaccess_tagproctoring'),
+        '',
+        '',
+        PARAM_TEXT
+    ));
+    $settings->add(new admin_setting_configtext(
+        'quizaccess_tagproctoring/s3_key',
+        get_string('settings_s3_key', 'quizaccess_tagproctoring'),
+        '',
+        '',
+        PARAM_TEXT
+    ));
+    $settings->add(new admin_setting_configpasswordunmask(
+        'quizaccess_tagproctoring/s3_secret',
+        get_string('settings_s3_secret', 'quizaccess_tagproctoring'),
+        ''
+    ));
+    $settings->add(new admin_setting_configcheckbox(
+        'quizaccess_tagproctoring/s3_pathstyle',
+        get_string('settings_s3_pathstyle', 'quizaccess_tagproctoring'),
+        get_string('settings_s3_pathstyle_desc', 'quizaccess_tagproctoring'),
+        1
+    ));
+    $settings->add(new admin_setting_configtext(
+        'quizaccess_tagproctoring/s3_prefix',
+        get_string('settings_s3_prefix', 'quizaccess_tagproctoring'),
+        get_string('settings_s3_prefix_desc', 'quizaccess_tagproctoring'),
+        'proctoring',
+        PARAM_PATH
+    ));
 }

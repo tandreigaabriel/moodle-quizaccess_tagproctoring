@@ -575,6 +575,8 @@ define("quizaccess_tagproctoring/recorder", ['core/str', 'quizaccess_tagproctori
                             started = true;
                             elapsed = 0;
                             recordedChunks = [];
+                            // A redo starts from zero: objects seen in the previous take must not carry over.
+                            detectedObjects = {};
                             mediaRecorder.start();
                             dot.classList.add('is-recording');
                             startBtn.disabled = false;

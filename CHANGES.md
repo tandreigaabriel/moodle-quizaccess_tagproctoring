@@ -3,10 +3,12 @@
 ## Unreleased
 
 ### Added
+- Object storage (S3-compatible): new admin section "Object storage (S3)" — endpoint, region, bucket, access key, secret, path-style, prefix. When enabled, room-scan videos, selfies, ID photos and screenshots are uploaded to the bucket (<prefix>/<quiz>/<user>/<area>/<file>) instead of the Moodle file store and served to invigilators through 10-minute presigned links; deleting evidence, the retention task and privacy requests remove the objects too. Own Signature V4 client (no SDK) verified against the AWS documentation example; tested live against Supabase Storage.
 - Periodic webcam evidence: "Screenshot interval" (seconds, min 10) now takes a webcam capture at that interval, capped by "Max screenshots per attempt" (source: periodic). Before, the setting had no effect.
 - Face turned away: "Face-turn sensitivity" now drives a real check (nose offset relative to the eye distance, 3 polls ≈ 9 s) that logs a `faceturn` event (10 risk points, capped ×3) with a webcam capture.
 
 ### Fixed
+- Room scan: pressing "Redo" no longer carries the objects seen in the previous take into the new one.
 - Room scan: "Extra Person in Room" / "Multiple Faces Detected" were shown on the report after a single misdetected frame; the report now lists only objects seen in at least "Minimum detections before flagging" intervals, and a second person must be a separate, confident (≥ 0.5) box. Detection now runs every 1 s.
 - Report: duration shows seconds under one minute ("23 s"); risk score is capped at 100; session cards fill the available width (no empty third column) with the action buttons on one row; flags panel scrolls into view and takes less empty space; missing selfie/ID thumbnails show a placeholder.
 - Wizard: on laptops (≤ 820 px tall) the captured selfie/ID preview is limited so the buttons stay visible.

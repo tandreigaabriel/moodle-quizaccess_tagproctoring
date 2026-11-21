@@ -100,7 +100,14 @@ try {
         $f->delete();
     }
 
-    $fs->create_file_from_pathname($fileinfo, $_FILES['video']['tmp_name']);
+    $store = \quizaccess_tagproctoring\local\s3_store::from_config();
+    if ($store) {
+        $store->delete_prefix($store->object_key($quizid, (int) $USER->id, 'roomscan'));
+    }
+    if (!$store || !$store->put_file($store->object_key($quizid, (int) $USER->id, 'roomscan', $filename),
+            $_FILES['video']['tmp_name'], 'video/webm')) {
+        $fs->create_file_from_pathname($fileinfo, $_FILES['video']['tmp_name']);
+    }
 
     $record = (object) [
         'quizid' => $quizid,
