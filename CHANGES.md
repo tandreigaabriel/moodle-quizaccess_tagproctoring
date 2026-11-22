@@ -1,6 +1,6 @@
 # Changes
 
-## Unreleased
+## 1.0.3 (2026-11-22)
 
 ### Added
 - Object storage (S3-compatible): new admin section "Object storage (S3)" — endpoint, region, bucket, access key, secret, path-style, prefix. When enabled, room-scan videos, selfies, ID photos and screenshots are uploaded to the bucket (<prefix>/<quiz>/<user>/<area>/<file>) instead of the Moodle file store and served to invigilators through 10-minute presigned links; deleting evidence, the retention task and privacy requests remove the objects too. Own Signature V4 client (no SDK) verified against the AWS documentation example; tested live against Supabase Storage.
