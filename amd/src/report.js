@@ -512,14 +512,17 @@ function(Str, Templates, Notification, I18n) {
 
     /**
      * Render the screenshot carousel for the current attempt.
-     * Thumbnails within 90 s of any time in highlightTimes receive a highlight border.
+     * Thumbnails within 90 s of any time in highlightTimes, or whose source equals
+     * highlightSource (e.g. a second-screen capture taken once sharing started, minutes
+     * after the event), receive a highlight border.
      * Thumbnails within 5 s of any violation event receive a red dot.
      * Clicking a thumbnail opens the lightbox.
      *
      * @param {Array|null} highlightTimes Unix timestamps to highlight around, or null for no filter.
      * @param {string}     note           Optional override text shown in the count area.
+     * @param {string|null} [highlightSource] Screenshot source that is always highlighted.
      */
-    function renderCarousel(highlightTimes, note) {
+    function renderCarousel(highlightTimes, note, highlightSource) {
         var shots = currentAttempt ? currentAttempt.screenshots : [];
         var studentName = currentStudent ? currentStudent.name : '';
 
@@ -549,7 +552,7 @@ function(Str, Templates, Notification, I18n) {
 
             var isHighlighted = !!(highlightTimes && highlightTimes.some(function(t) {
                 return Math.abs(shot.time - t) <= 90;
-            }));
+            })) || !!(highlightSource && shot.source === highlightSource);
             var isSuspicious = allEventTimes.some(function(t) {
                 return Math.abs(shot.time - t) <= 5;
             });
@@ -646,9 +649,11 @@ function(Str, Templates, Notification, I18n) {
         el('tagrep-carousel-title').textContent = cat.icon + '  ' + cat.label;
 
         var highlightTimes = null;
+        var highlightSource = null;
         var note = '';
 
         if (cat.source === 'event') {
+            highlightSource = cat.event_type;
             highlightTimes = currentAttempt.events
                 .filter(function(e) {return e.type === cat.event_type;})
                 .map(function(e) {return e.time;});
@@ -662,7 +667,7 @@ function(Str, Templates, Notification, I18n) {
                 : (S.report_scan_no_video);
         }
 
-        renderCarousel(highlightTimes, note);
+        renderCarousel(highlightTimes, note, highlightSource);
     }
 
     /**

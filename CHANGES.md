@@ -9,6 +9,7 @@
 
 ### Fixed
 - Screen sharing was requested again on the quiz summary page (and on every quiz page): the summary page now keeps webcam/event monitoring without the full-screen + screen-share gate, and the quiz settings explain that "all questions on one page" means a single prompt (a browser screen-share stream cannot survive a page load).
+- Report: clicking an event category highlights its screenshots by source as well as by time (±90 s); a second-screen capture taken once the student finally shared the screen was not shown under the event.
 - A second screen (`multiplescreen`) only logged an event; it now also attaches a screenshot of the shared screen (waits up to 5 minutes for the student to start sharing; webcam only as a last resort), and the report labels `multiplefaces` / `multiplescreen` evidence instead of showing the raw source name.
 - Room scan: pressing "Redo" no longer carries the objects seen in the previous take into the new one.
 - Room scan: "Extra Person in Room" / "Multiple Faces Detected" were shown on the report after a single misdetected frame; the report now lists only objects seen in at least "Minimum detections before flagging" intervals, and a second person must be a separate, confident (≥ 0.5) box. Detection now runs every 1 s.
