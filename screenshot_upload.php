@@ -73,7 +73,7 @@ try {
     // per logged event) by "Max event logs per attempt", so a long exam with periodic shots can
     // never use up the evidence for a tab switch or a second person later on.
     if (in_array($source, $periodicsources, true)) {
-        $maxshots = (int) get_config('quizaccess_tagproctoring', 'maxscreenshots') ?: 20;
+        $maxshots = quizaccess_tagproctoring_attempt_cap('maxscreenshots', 20, 'maxscreenshots_per_hour', (int) $quizid);
         [$insql, $inparams] = $DB->get_in_or_equal($periodicsources, SQL_PARAMS_NAMED);
         $existingcount = $DB->count_records_select(
             'quizaccess_tagproctoring_screenshots',
@@ -81,7 +81,9 @@ try {
             ['attemptid' => $attemptid] + $inparams
         );
     } else {
-        $maxshots = (int) get_config('quizaccess_tagproctoring', 'maxevents') ?: 200;
+        // Admin "Max event screenshots per attempt"; 0 = same cap as the event log.
+        $maxshots = quizaccess_tagproctoring_timing('max_event_screenshots')
+            ?: quizaccess_tagproctoring_attempt_cap('maxevents', 500, 'maxevents_per_hour', (int) $quizid);
         $existingcount = $DB->count_records('quizaccess_tagproctoring_screenshots', ['attemptid' => $attemptid]);
     }
     if ($existingcount >= $maxshots) {

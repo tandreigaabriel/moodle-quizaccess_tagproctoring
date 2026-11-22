@@ -94,6 +94,91 @@ function quizaccess_tagproctoring_screenshot_events(): array {
 }
 
 /**
+ * Defaults of the admin-adjustable timings and limits ("Timings and limits" settings).
+ *
+ * @return int[] name => default
+ */
+function quizaccess_tagproctoring_timing_defaults(): array {
+    return [
+        'face_check_interval' => 3,
+        'face_away_seconds' => 9,
+        'face_turn_seconds' => 9,
+        'multiplefaces_seconds' => 6,
+        'face_alert_cooldown' => 30,
+        'devtools_check_interval' => 10,
+        'multiplescreen_wait' => 300,
+        'screenshot_width' => 960,
+        'webcam_width' => 480,
+        'screenshot_quality' => 55,
+        'max_event_screenshots' => 0,
+        'maxevents_per_hour' => 200,
+        'maxscreenshots_per_hour' => 120,
+    ];
+}
+
+/**
+ * Whole hours of a quiz's time limit (at least 1), or 0 when the quiz has no time limit.
+ *
+ * @param int $quizid Quiz id.
+ * @return int Hours.
+ */
+function quizaccess_tagproctoring_quiz_hours(int $quizid): int {
+    global $DB;
+
+    $timelimit = (int) $DB->get_field('quiz', 'timelimit', ['id' => $quizid]);
+    return $timelimit > 0 ? max(1, (int) ceil($timelimit / HOURSECS)) : 0;
+}
+
+/**
+ * Per-attempt cap sized for the exam length: the larger of the absolute setting and
+ * "per hour" x hours of the quiz time limit (quizzes without a time limit use the absolute cap).
+ *
+ * @param string $absolutesetting Setting name of the absolute cap (e.g. 'maxevents').
+ * @param int $absolutedefault Default of the absolute cap.
+ * @param string $perhoursetting Timing name of the per-hour value (e.g. 'maxevents_per_hour').
+ * @param int $quizid Quiz id.
+ * @return int Cap, at least 1.
+ */
+function quizaccess_tagproctoring_attempt_cap(string $absolutesetting, int $absolutedefault, string $perhoursetting, int $quizid): int {
+    $absolute = (int) get_config('quizaccess_tagproctoring', $absolutesetting) ?: $absolutedefault;
+    $perhour = quizaccess_tagproctoring_timing($perhoursetting);
+    $hours = quizaccess_tagproctoring_quiz_hours($quizid);
+    return max(1, ($perhour > 0 && $hours > 0) ? max($absolute, $perhour * $hours) : $absolute);
+}
+
+/**
+ * One timing/limit as configured by the admin, or its default when unset.
+ *
+ * @param string $name Setting name (see quizaccess_tagproctoring_timing_defaults()).
+ * @return int Value, never below 0.
+ */
+function quizaccess_tagproctoring_timing(string $name): int {
+    $defaults = quizaccess_tagproctoring_timing_defaults();
+    $raw = get_config('quizaccess_tagproctoring', $name);
+    return max(0, ($raw === false || $raw === '') ? (int) ($defaults[$name] ?? 0) : (int) $raw);
+}
+
+/**
+ * Timings passed to the in-exam monitor (amd/src/monitor.js), keyed as the JS expects them.
+ *
+ * @return int[]
+ */
+function quizaccess_tagproctoring_monitor_timings(): array {
+    return [
+        'faceCheckInterval' => quizaccess_tagproctoring_timing('face_check_interval'),
+        'faceAwaySeconds' => quizaccess_tagproctoring_timing('face_away_seconds'),
+        'faceTurnSeconds' => quizaccess_tagproctoring_timing('face_turn_seconds'),
+        'multipleFacesSeconds' => quizaccess_tagproctoring_timing('multiplefaces_seconds'),
+        'faceAlertCooldown' => quizaccess_tagproctoring_timing('face_alert_cooldown'),
+        'devtoolsCheckInterval' => quizaccess_tagproctoring_timing('devtools_check_interval'),
+        'multipleScreenWait' => quizaccess_tagproctoring_timing('multiplescreen_wait'),
+        'screenshotWidth' => quizaccess_tagproctoring_timing('screenshot_width'),
+        'webcamWidth' => quizaccess_tagproctoring_timing('webcam_width'),
+        'screenshotQuality' => quizaccess_tagproctoring_timing('screenshot_quality'),
+    ];
+}
+
+/**
  * Minimum seconds between two screenshots of one attempt ("Minimum seconds between screenshots").
  *
  * @return int Seconds, at least 1.

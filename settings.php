@@ -231,7 +231,7 @@ if ($ADMIN->fulltree) {
         'quizaccess_tagproctoring/maxevents',
         get_string('settings_maxevents', 'quizaccess_tagproctoring'),
         get_string('settings_maxevents_desc', 'quizaccess_tagproctoring'),
-        200,
+        500,
         PARAM_INT
     ));
 
@@ -301,6 +301,22 @@ if ($ADMIN->fulltree) {
         get_string('settings_faceturn_sensitivity_default', 'quizaccess_tagproctoring'),
         PARAM_TEXT
     ));
+
+    // Timings and limits — every interval, delay and size used by the in-exam monitor.
+    $settings->add(new admin_setting_heading(
+        'quizaccess_tagproctoring/timings_heading',
+        get_string('settings_timings', 'quizaccess_tagproctoring'),
+        get_string('settings_timings_desc', 'quizaccess_tagproctoring')
+    ));
+    foreach (quizaccess_tagproctoring_timing_defaults() as $timingname => $timingdefault) {
+        $settings->add(new admin_setting_configtext(
+            'quizaccess_tagproctoring/' . $timingname,
+            get_string('settings_' . $timingname, 'quizaccess_tagproctoring'),
+            get_string('settings_' . $timingname . '_desc', 'quizaccess_tagproctoring'),
+            $timingdefault,
+            PARAM_INT
+        ));
+    }
 
     // Risk scoring settings.
     $settings->add(new admin_setting_heading(

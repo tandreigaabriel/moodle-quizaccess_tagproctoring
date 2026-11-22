@@ -403,6 +403,7 @@ class quizaccess_tagproctoring extends quizaccess_tagproctoring_parent_class_ali
             'faceTurnSensitivity' => $faceturnsensitivity,
             'screenshotEvents'    => quizaccess_tagproctoring_screenshot_events(),
             'screenshotMinGap'    => quizaccess_tagproctoring_screenshot_min_gap(),
+            'timings'             => quizaccess_tagproctoring_monitor_timings(),
             'vendorBase'          => (new moodle_url(
                 '/mod/quiz/accessrule/tagproctoring/vendor'
             ))->out(false),

@@ -28,7 +28,8 @@ TAG Proctoring is a quiz access rule plugin for Moodle that enables lightweight 
 - Optional periodic webcam evidence every "Screenshot interval" seconds (0 = off, default; minimum 10 when on), capped by "Max screenshots per attempt"
 - Event logging: tab switch, window blur, copy/paste, DevTools open, context menu, fullscreen exit, multiple screens (with a screenshot of the shared screen once sharing starts), screen-share stop
 - Screen sharing is requested once per quiz page (a browser stream cannot survive a page load) and not again on the summary page; set "New page" to "Never, all questions on one page" so the student is asked only once
-- Face presence via AI (BlazeFace, every 3 s): `faceaway` when no face is visible for ~9 s, `faceturn` when the head stays turned to the side for ~9 s (threshold = "Face-turn sensitivity"), `multiplefaces` when a second person is in front of the camera — all with a webcam screenshot and a risk score
+- Face presence via AI (BlazeFace, every "Face check interval" seconds): `faceaway` when no face is visible for "Face away after" seconds, `faceturn` when the head stays turned to the side (threshold = "Face-turn sensitivity"), `multiplefaces` when a second person is in front of the camera — all with a webcam screenshot, a risk score and a per-event cooldown
+- Nothing is hard-coded: every interval, delay, size and cap is an admin setting ("Timings and limits"); caps scale with the quiz time limit ("per exam hour" values), so a 3-hour exam keeps all its evidence
 - Status bar showing webcam dot, screen-share dot, and elapsed timer
 
 ### Instructor report
@@ -124,6 +125,7 @@ licence key for that site.
 | Flagged object types        | One COCO-SSD class per line that triggers a suspicious flag             |
 | Minimum detections          | Intervals (~1 s) an object must be seen in before it counts (default: 3)|
 | Face-turn sensitivity       | Nose offset / eye distance above which the head counts as turned (0.30)|
+| Timings and limits          | Face check interval (3 s), face away after (9 s), face turned after (9 s), second person after (6 s), face alert cooldown (30 s), DevTools check interval (10 s), second-screen capture wait (300 s), screen capture width (960 px), webcam capture width (480 px), JPEG quality (55), max event screenshots per attempt (0 = Max event logs), max event logs per exam hour (200), max periodic screenshots per exam hour (120) — for quizzes with a time limit the caps become max(absolute, per hour x hours) |
 | High risk threshold         | Risk score at or above which an attempt is marked High (default: 60)    |
 | Medium risk threshold       | Score at or above which an attempt is marked Needs Review (default: 20) |
 | Email alerts                | Enable post-attempt alert emails                                        |
