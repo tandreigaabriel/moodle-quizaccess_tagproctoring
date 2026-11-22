@@ -30,6 +30,10 @@ use core_external\external_single_structure;
 use core_external\external_value;
 use context_module;
 
+defined('MOODLE_INTERNAL') || die();
+
+require_once(__DIR__ . '/../../lib.php');
+
 /**
  * External function class for logging proctoring events.
  */
@@ -101,7 +105,7 @@ class log_event extends external_api {
 
         // Server-side guard rails for large exams: cap rows per attempt and
         // suppress repeated identical events fired within a few seconds.
-        $maxevents = (int) get_config('quizaccess_tagproctoring', 'maxevents') ?: 200;
+        $maxevents = quizaccess_tagproctoring_attempt_cap('maxevents', 500, 'maxevents_per_hour', (int) $cm->instance);
         if ($DB->count_records('quizaccess_tagproctoring_events', ['attemptid' => $attemptid]) >= $maxevents) {
             return ['status' => 'ok'];
         }

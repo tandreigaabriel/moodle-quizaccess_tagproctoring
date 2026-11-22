@@ -64,6 +64,11 @@ function(Ajax, I18n, Templates, Notification) {
 
     // Cached last-good frame so screenshots succeed even when live videos are paused.
     var lastFrameCanvas = null;
+    var lastEventShotSent = 0;     // time of the last event-triggered capture (periodic ones excluded)
+    var T = {};                    // admin "Timings and limits" (cfg.timings), filled in init()
+    var TIMING_DEFAULTS = {faceCheckInterval: 3, faceAwaySeconds: 9, faceTurnSeconds: 9, multipleFacesSeconds: 6,
+        faceAlertCooldown: 30, devtoolsCheckInterval: 10, multipleScreenWait: 300, screenshotWidth: 960,
+        webcamWidth: 480, screenshotQuality: 55};
 
     // Set to true while we are requesting our own screen share so detectScreenShare()
     // does not log it as a student-initiated share event.
@@ -243,6 +248,8 @@ function(Ajax, I18n, Templates, Notification) {
                     screenVideo.parentNode.removeChild(screenVideo);
                 }
                 screenVideo = null;
+                // The shared screen is gone — keep a webcam frame of who is at the desk right now.
+                captureScreenshot('screensharestop');
                 showScreenShareStopOverlay();
             });
         });
@@ -268,7 +275,7 @@ function(Ajax, I18n, Templates, Notification) {
         }
         var w = src.videoWidth || 320;
         var h = src.videoHeight || 240;
-        var scale = Math.min(960 / w, 1);
+        var scale = Math.min(T.screenshotWidth / w, 1);
         lastFrameCanvas.width  = Math.round(w * scale);
         lastFrameCanvas.height = Math.round(h * scale);
         lastFrameCanvas.getContext('2d').drawImage(src, 0, 0, lastFrameCanvas.width, lastFrameCanvas.height);
@@ -289,15 +296,22 @@ function(Ajax, I18n, Templates, Notification) {
         if (!cfg.enablescreenshots) {
             return false;
         }
-        var allowed = ['tabswitch', 'windowblur', 'contextmenu', 'faceaway', 'multiplefaces', 'faceturn', 'periodic',
-            'multiplescreen'];
+        // Admin setting "Screenshot on these events" (cfg.screenshotEvents); periodic captures are
+        // governed by "Screenshot interval" instead.
+        var allowed = (cfg.screenshotEvents || []).concat(['periodic']);
         if (allowed.indexOf(trigger) === -1) {
             return false;
         }
-        // Rate limit: skip if an upload is already in-flight or was sent less than 5 s ago.
-        // This prevents tab-switch + window-blur firing two concurrent uploads, and stops
-        // burst overload when hundreds of students trigger events simultaneously.
-        if (screenshotInFlight || (Date.now() - lastScreenshotSent) < 5000) {
+        // Rate limit (admin "Minimum seconds between screenshots"): skip if an upload is already
+        // in-flight or the previous one was sent too recently. This prevents tab-switch +
+        // window-blur firing two concurrent uploads, and stops burst overload when hundreds of
+        // students trigger events simultaneously.
+        // A periodic capture never blocks an event capture: the gap for events is measured
+        // from the previous event capture only (the server applies the same rule).
+        var minGapMs = (parseInt(cfg.screenshotMinGap, 10) || 2) * 1000;
+        var isPeriodic = trigger === 'periodic';
+        var lastRelevant = isPeriodic ? Math.max(lastScreenshotSent, lastEventShotSent) : lastEventShotSent;
+        if (screenshotInFlight || (Date.now() - lastRelevant) < minGapMs) {
             return false;
         }
         var canvas = document.createElement('canvas');
@@ -306,20 +320,20 @@ function(Ajax, I18n, Templates, Notification) {
         // student's face to understand why the alert fired, not the screen content.
         // All other events (tab switch, window blur, etc.) prefer the screen-share
         // stream so the invigilator can see what the student switched to.
-        var wantWebcam = ['faceaway', 'multiplefaces', 'faceturn', 'periodic'].indexOf(trigger) !== -1;
+        var wantWebcam = ['faceaway', 'multiplefaces', 'faceturn', 'periodic', 'screensharestop'].indexOf(trigger) !== -1;
         if (!wantWebcam && screenVideo && screenVideo.readyState >= 2 && screenVideo.videoWidth > 0) {
             var w = screenVideo.videoWidth;
             var h = screenVideo.videoHeight;
-            // Scale down to max 960 px wide — smaller than 1280 reduces server storage and I/O.
-            var scale = Math.min(960 / w, 1);
+            // Scale down to the admin "Screen capture width" — smaller reduces storage and I/O.
+            var scale = Math.min(T.screenshotWidth / w, 1);
             canvas.width  = Math.round(w * scale);
             canvas.height = Math.round(h * scale);
             canvas.getContext('2d').drawImage(screenVideo, 0, 0, canvas.width, canvas.height);
         } else if (liveVideo && liveVideo.readyState >= 2) {
             // Webcam frame — used for face events (evidence of who is in front of the
             // camera) and as fallback when screen share is unavailable.
-            canvas.width  = wantWebcam ? 480 : 256;
-            canvas.height = wantWebcam ? 360 : 192;
+            canvas.width  = wantWebcam ? T.webcamWidth : 256;
+            canvas.height = Math.round(canvas.width * 3 / 4);
             canvas.getContext('2d').drawImage(liveVideo, 0, 0, canvas.width, canvas.height);
         } else if (lastFrameCanvas && lastFrameCanvas.width > 0) {
             // Both live videos are paused (e.g. tab just switched) — use the last cached frame.
@@ -346,27 +360,30 @@ function(Ajax, I18n, Templates, Notification) {
                 credentials: 'same-origin'
             }).then(function() {
                 lastScreenshotSent = Date.now();
+                if (!isPeriodic) {
+                    lastEventShotSent = lastScreenshotSent;
+                }
                 screenshotInFlight = false;
-                if (trigger === 'periodic') {
+                if (isPeriodic) {
                     periodicShots++;
                 }
             }).catch(function() {
                 screenshotInFlight = false;
             });
-        }, 'image/jpeg', 0.55);
+        }, 'image/jpeg', T.screenshotQuality / 100);
         return true;
     }
 
     /**
      * Screen evidence for the "second screen" event. The overlay appears at session start,
      * before the student has shared the screen, so wait for the screen-share stream (every
-     * 2 s, up to 5 minutes) and capture the shared monitor; if it never comes, fall back to
+     * 2 s, up to "Second-screen capture wait") and capture the shared monitor; if it never comes, fall back to
      * whatever captureScreenshot() can get (webcam). The event itself is already logged.
      *
      * @param {number} [left] Remaining attempts.
      */
     function captureMultipleScreensEvidence(left) {
-        var remaining = (left === undefined) ? 150 : left;
+        var remaining = (left === undefined) ? Math.ceil(T.multipleScreenWait / 2) : left;
         var screenReady = screenVideo && screenVideo.readyState >= 2 && screenVideo.videoWidth > 0;
         if ((screenReady || remaining <= 0) && captureScreenshot('multiplescreen')) {
             return;
@@ -418,16 +435,16 @@ function(Ajax, I18n, Templates, Notification) {
                 return;
             }
             faceDetectModel.estimateFaces(liveVideo, false).then(function(faces) {
-                // No face in frame — student may have left the camera.
-                // Flag after 3 consecutive no-face polls (≈9 s) to avoid false positives.
+                // No face in frame — student may have left the camera. Flag after "Face away
+                // seconds" of consecutive no-face polls to avoid false positives.
                 if (!faces || faces.length === 0) {
                     noFaceCount++;
-                    if (noFaceCount >= 3) {
+                    if (noFaceCount >= polls(T.faceAwaySeconds)) {
                         var nowAway = Date.now();
-                        if (nowAway - lastNoFaceShot > 30000) {
+                        if (nowAway - lastNoFaceShot > T.faceAlertCooldown * 1000) {
                             lastNoFaceShot = nowAway;
                             noFaceCount = 0;
-                            logEvent('faceaway', I18n.get('ui_face_not_visible_for_9_seconds'));
+                            logEvent('faceaway', I18n.get('ui_face_not_visible_for_seconds', T.faceAwaySeconds));
                             captureScreenshot('faceaway');
                         }
                     }
@@ -437,10 +454,11 @@ function(Ajax, I18n, Templates, Notification) {
                 noFaceCount = 0; // reset when face is visible again
 
                 if (faces.length > 1) {
-                    // A second person in frame: flag after 2 consecutive polls (about 6 s),
-                    // at most once every 30 s, with a webcam screenshot as evidence.
+                    // A second person in frame: flag after "Second person seconds", at most once
+                    // per "Face alert cooldown", with a webcam screenshot as evidence.
                     multiFaceCount++;
-                    if (multiFaceCount >= 2 && Date.now() - lastMultiFaceShot > 30000) {
+                    if (multiFaceCount >= polls(T.multipleFacesSeconds) &&
+                            Date.now() - lastMultiFaceShot > T.faceAlertCooldown * 1000) {
                         lastMultiFaceShot = Date.now();
                         multiFaceCount = 0;
                         logEvent('multiplefaces', I18n.get('ui_faces_visible_in_the_camera', faces.length));
@@ -454,7 +472,7 @@ function(Ajax, I18n, Templates, Notification) {
                     return;
                 }
                 // Head turned clearly to one side: the nose offset from the eye midpoint, relative to
-                // the eye distance, stays above the admin "Face-turn sensitivity" for 3 polls (≈9 s).
+                // the eye distance, stays above the admin "Face-turn sensitivity" for "Face turn seconds".
                 // BlazeFace landmarks: [rightEye, leftEye, nose, mouth, rightEar, leftEar].
                 var eyeMidX = (lm[0][0] + lm[1][0]) / 2;
                 var eyeDist = Math.abs(lm[1][0] - lm[0][0]) || 1;
@@ -462,17 +480,28 @@ function(Ajax, I18n, Templates, Notification) {
                 var turnThreshold = parseFloat(cfg.faceTurnSensitivity) || 0.3;
                 if (turnRatio > turnThreshold) {
                     faceTurnCount++;
-                    if (faceTurnCount >= 3 && Date.now() - lastFaceTurnShot > 30000) {
+                    if (faceTurnCount >= polls(T.faceTurnSeconds) &&
+                            Date.now() - lastFaceTurnShot > T.faceAlertCooldown * 1000) {
                         lastFaceTurnShot = Date.now();
                         faceTurnCount = 0;
-                        logEvent('faceturn', I18n.get('ui_face_turned_away_for_9_seconds'));
+                        logEvent('faceturn', I18n.get('ui_face_turned_away_for_seconds', T.faceTurnSeconds));
                         captureScreenshot('faceturn');
                     }
                 } else {
                     faceTurnCount = 0;
                 }
             }).catch(function() {});
-        }, 3000);
+        }, T.faceCheckInterval * 1000);
+    }
+
+    /**
+     * Number of consecutive face-check polls that cover the given number of seconds.
+     *
+     * @param {number} seconds Admin setting in seconds.
+     * @returns {number} Polls, at least 1.
+     */
+    function polls(seconds) {
+        return Math.max(1, Math.round(seconds / T.faceCheckInterval));
     }
 
     /**
@@ -733,12 +762,15 @@ function(Ajax, I18n, Templates, Notification) {
     function detectCopyPaste() {
         document.addEventListener("copy", function() {
             logEvent("copypaste", I18n.get('ui_copy_event'));
+            captureScreenshot('copypaste');
         });
         document.addEventListener("paste", function() {
             logEvent("copypaste", I18n.get('ui_paste_event'));
+            captureScreenshot('copypaste');
         });
         document.addEventListener("cut", function() {
             logEvent("copypaste", I18n.get('ui_cut_event'));
+            captureScreenshot('copypaste');
         });
     }
 
@@ -889,6 +921,7 @@ function(Ajax, I18n, Templates, Notification) {
                 if (enteredFullscreen) {
                     exitCount++;
                     logEvent('fullscreenexit', I18n.get('ui_student_exited_fullscreen_count') + exitCount);
+                    captureScreenshot('fullscreenexit');
                 }
                 renderOverlay();
                 overlay.style.display = 'flex';
@@ -998,13 +1031,21 @@ function(Ajax, I18n, Templates, Notification) {
      */
     function detectDevTools() {
         var threshold = 160;
+        var devToolsOpen = false;
         setInterval(function() {
             var widthDiff  = window.outerWidth - window.innerWidth;
             var heightDiff = window.outerHeight - window.innerHeight;
             if (widthDiff > threshold || heightDiff > threshold) {
                 logEvent("devtools", I18n.get('ui_possible_devtools_open_w') + widthDiff + " h=" + heightDiff);
+                if (!devToolsOpen) {
+                    // One screenshot when the panel opens, not every 10 s while it stays open.
+                    captureScreenshot('devtools');
+                }
+                devToolsOpen = true;
+            } else {
+                devToolsOpen = false;
             }
-        }, 10000);
+        }, T.devtoolsCheckInterval * 1000);
     }
 
     return {
@@ -1027,13 +1068,19 @@ function(Ajax, I18n, Templates, Notification) {
                 return;
             }
 
+            // Admin "Timings and limits"; a missing or non-positive value falls back to the default.
+            Object.keys(TIMING_DEFAULTS).forEach(function(k) {
+                var v = cfg.timings ? parseInt(cfg.timings[k], 10) : NaN;
+                T[k] = (v > 0) ? v : TIMING_DEFAULTS[k];
+            });
+
             // Log browser and OS info once at session start so invigilators can
             // see what environment the student used without reading raw user-agent strings.
             logEvent('sessionstart', detectBrowser() + ' / ' + detectOS());
 
-            // Periodic webcam evidence: admin "Screenshot interval" (seconds, minimum 10) capped by
-            // "Max screenshots per attempt". Event-triggered captures are not counted here; the
-            // server enforces the overall cap per attempt.
+            // Optional periodic webcam evidence: admin "Screenshot interval" (seconds; 0 = off,
+            // minimum 10 when on) capped by "Max screenshots per attempt". Event-triggered captures
+            // are separate and capped by "Max event logs per attempt" on the server.
             var periodicEvery = parseInt(cfg.interval, 10) || 0;
             var periodicMax = parseInt(cfg.maxscreenshots, 10) || 20;
             if (cfg.enablescreenshots && periodicEvery > 0) {
