@@ -124,7 +124,7 @@ function(Str, Templates, Notification, I18n) {
             faceturn:    S.evidence_webcam_faceturn,
             periodic:    S.evidence_webcam_periodic,
             multiplefaces: S.evidence_webcam_multiplefaces,
-            multiplescreen: S.evidence_webcam_multiplescreen,
+            multiplescreen: S.evidence_screen_multiplescreen,
         };
         return labels[source] || (source ? source.replace(/_/g, ' ') : (S.evidence_default));
     }
@@ -1004,7 +1004,7 @@ function(Str, Templates, Notification, I18n) {
                 {key: 'summary_label_faceturn',        component: comp},
                 {key: 'evidence_webcam_periodic',      component: comp},
                 {key: 'evidence_webcam_multiplefaces', component: comp},
-                {key: 'evidence_webcam_multiplescreen', component: comp},
+                {key: 'evidence_screen_multiplescreen', component: comp},
             ]).then(function(strs) {
                 var i = 0;
                 // VIOLATIONS labels.
@@ -1114,7 +1114,7 @@ function(Str, Templates, Notification, I18n) {
                 S.summary_label_faceturn           = strs[i++];
                 S.evidence_webcam_periodic         = strs[i++];
                 S.evidence_webcam_multiplefaces    = strs[i++];
-                S.evidence_webcam_multiplescreen   = strs[i++];
+                S.evidence_screen_multiplescreen   = strs[i++];
 
                 renderStudentList(DATA);
             });

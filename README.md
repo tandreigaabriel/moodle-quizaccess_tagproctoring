@@ -25,7 +25,7 @@ TAG Proctoring is a quiz access rule plugin for Moodle that enables lightweight 
 
 - Evidence screenshots on suspicious events (tab switch, window blur, right-click, face away, face turned, second person) — from the shared screen when available, from the webcam for face events; rate-limited and capped per attempt
 - Periodic webcam evidence every "Screenshot interval" seconds (minimum 10), counted against "Max screenshots per attempt"
-- Event logging: tab switch, window blur, copy/paste, DevTools open, context menu, fullscreen exit, multiple screens (with a webcam screenshot), screen-share stop
+- Event logging: tab switch, window blur, copy/paste, DevTools open, context menu, fullscreen exit, multiple screens (with a screenshot of the shared screen once sharing starts), screen-share stop
 - Screen sharing is requested once per quiz page (a browser stream cannot survive a page load) and not again on the summary page; set "New page" to "Never, all questions on one page" so the student is asked only once
 - Face presence via AI (BlazeFace, every 3 s): `faceaway` when no face is visible for ~9 s, `faceturn` when the head stays turned to the side for ~9 s (threshold = "Face-turn sensitivity"), `multiplefaces` when a second person is in front of the camera — all with a webcam screenshot and a risk score
 - Status bar showing webcam dot, screen-share dot, and elapsed timer

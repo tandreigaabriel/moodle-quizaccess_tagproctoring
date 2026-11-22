@@ -306,7 +306,7 @@ function(Ajax, I18n, Templates, Notification) {
         // student's face to understand why the alert fired, not the screen content.
         // All other events (tab switch, window blur, etc.) prefer the screen-share
         // stream so the invigilator can see what the student switched to.
-        var wantWebcam = ['faceaway', 'multiplefaces', 'faceturn', 'periodic', 'multiplescreen'].indexOf(trigger) !== -1;
+        var wantWebcam = ['faceaway', 'multiplefaces', 'faceturn', 'periodic'].indexOf(trigger) !== -1;
         if (!wantWebcam && screenVideo && screenVideo.readyState >= 2 && screenVideo.videoWidth > 0) {
             var w = screenVideo.videoWidth;
             var h = screenVideo.videoHeight;
@@ -358,15 +358,20 @@ function(Ajax, I18n, Templates, Notification) {
     }
 
     /**
-     * Webcam evidence for the "second screen" event. The overlay appears at session start,
-     * often before the webcam stream is ready, so retry every 2 s for up to 30 s until a
-     * frame could be captured (the event itself is already logged).
+     * Screen evidence for the "second screen" event. The overlay appears at session start,
+     * before the student has shared the screen, so wait for the screen-share stream (every
+     * 2 s, up to 5 minutes) and capture the shared monitor; if it never comes, fall back to
+     * whatever captureScreenshot() can get (webcam). The event itself is already logged.
      *
      * @param {number} [left] Remaining attempts.
      */
     function captureMultipleScreensEvidence(left) {
-        var remaining = (left === undefined) ? 15 : left;
-        if (captureScreenshot('multiplescreen') || remaining <= 0) {
+        var remaining = (left === undefined) ? 150 : left;
+        var screenReady = screenVideo && screenVideo.readyState >= 2 && screenVideo.videoWidth > 0;
+        if ((screenReady || remaining <= 0) && captureScreenshot('multiplescreen')) {
+            return;
+        }
+        if (remaining <= 0 && !screenReady) {
             return;
         }
         setTimeout(function() {
