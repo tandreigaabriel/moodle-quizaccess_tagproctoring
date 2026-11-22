@@ -88,7 +88,7 @@ try {
     $source = optional_param('source', 'webcam', PARAM_ALPHA);
     $allowedsources = [
         'webcam', 'screen', 'tabswitch', 'windowblur', 'contextmenu',
-        'faceaway', 'faceturn', 'multiplefaces', 'periodic',
+        'faceaway', 'faceturn', 'multiplefaces', 'periodic', 'multiplescreen',
     ];
     if (!in_array($source, $allowedsources, true)) {
         throw new moodle_exception('invalidparameter', 'error');

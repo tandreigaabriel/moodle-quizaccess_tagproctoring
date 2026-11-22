@@ -8,6 +8,8 @@
 - Face turned away: "Face-turn sensitivity" now drives a real check (nose offset relative to the eye distance, 3 polls ≈ 9 s) that logs a `faceturn` event (10 risk points, capped ×3) with a webcam capture.
 
 ### Fixed
+- Screen sharing was requested again on the quiz summary page (and on every quiz page): the summary page now keeps webcam/event monitoring without the full-screen + screen-share gate, and the quiz settings explain that "all questions on one page" means a single prompt (a browser screen-share stream cannot survive a page load).
+- A second screen (`multiplescreen`) only logged an event; it now also attaches a webcam screenshot (retried for up to 30 s while the webcam starts), and the report labels `multiplefaces` / `multiplescreen` evidence instead of showing the raw source name.
 - Room scan: pressing "Redo" no longer carries the objects seen in the previous take into the new one.
 - Room scan: "Extra Person in Room" / "Multiple Faces Detected" were shown on the report after a single misdetected frame; the report now lists only objects seen in at least "Minimum detections before flagging" intervals, and a second person must be a separate, confident (≥ 0.5) box. Detection now runs every 1 s.
 - Report: duration shows seconds under one minute ("23 s"); risk score is capped at 100; session cards fill the available width (no empty third column) with the action buttons on one row; flags panel scrolls into view and takes less empty space; missing selfie/ID thumbnails show a placeholder.

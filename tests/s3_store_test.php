@@ -82,6 +82,7 @@ final class s3_store_test extends \advanced_testcase {
         $tmp = make_request_directory() . '/selfie.jpg';
         file_put_contents($tmp, 'jpegdata');
 
+        $this->assertSame('proctoring/42/7/', $store->object_key(42, 7, ''));
         $key = $store->object_key(42, 7, 'selfie', 'selfie_42_7.jpg');
         $this->assertSame('proctoring/42/7/selfie/selfie_42_7.jpg', $key);
         $this->assertTrue($store->put_file($key, $tmp, 'image/jpeg'));
