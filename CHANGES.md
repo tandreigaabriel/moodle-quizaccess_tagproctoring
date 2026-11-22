@@ -1,5 +1,10 @@
 # Changes
 
+## 1.0.4 (2026-11-22)
+
+### Fixed
+- Site administration → Plugins → Quiz access rules → TAG Proctoring (and the admin settings search) threw "Call to undefined function quizaccess_tagproctoring_timing_defaults()": the admin tree includes `settings.php` without loading the plugin's `lib.php`, where the timing defaults introduced in 1.0.3 live. `settings.php` now requires `lib.php` itself.
+
 ## 1.0.3 (2026-11-22)
 
 ### Added
