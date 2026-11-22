@@ -512,14 +512,18 @@ function(Str, Templates, Notification, I18n) {
 
     /**
      * Render the screenshot carousel for the current attempt.
-     * Thumbnails within 90 s of any time in highlightTimes receive a highlight border.
+     * Thumbnails within 90 s of any time in highlightTimes, or whose source equals
+     * highlightSource, receive a highlight border; when the category has screenshots of
+     * its own source (e.g. a second-screen capture taken once sharing started, minutes
+     * after the event), only those are highlighted.
      * Thumbnails within 5 s of any violation event receive a red dot.
      * Clicking a thumbnail opens the lightbox.
      *
      * @param {Array|null} highlightTimes Unix timestamps to highlight around, or null for no filter.
      * @param {string}     note           Optional override text shown in the count area.
+     * @param {string|null} [highlightSource] Screenshot source that is always highlighted.
      */
-    function renderCarousel(highlightTimes, note) {
+    function renderCarousel(highlightTimes, note, highlightSource) {
         var shots = currentAttempt ? currentAttempt.screenshots : [];
         var studentName = currentStudent ? currentStudent.name : '';
 
@@ -541,15 +545,22 @@ function(Str, Templates, Notification, I18n) {
         var firstHighlightIdx = -1;
         var highlightedCount  = 0;
         var thumbnails = [];
+        // When the category's event takes its own screenshots (source = event type), show
+        // exactly those; the ±90 s window is only for events without a capture of their own.
+        var hasSourceShots = !!highlightSource && shots.some(function(s) {
+            return s.source === highlightSource;
+        });
 
         shots.forEach(function(shot, idx) {
             var d = new Date(shot.time * 1000);
             var timeStr = d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
             var srcLabel = evidenceSourceLabel(shot.source, false);
 
-            var isHighlighted = !!(highlightTimes && highlightTimes.some(function(t) {
-                return Math.abs(shot.time - t) <= 90;
-            }));
+            var isHighlighted = hasSourceShots
+                ? shot.source === highlightSource
+                : !!(highlightTimes && highlightTimes.some(function(t) {
+                    return Math.abs(shot.time - t) <= 90;
+                }));
             var isSuspicious = allEventTimes.some(function(t) {
                 return Math.abs(shot.time - t) <= 5;
             });
@@ -646,9 +657,11 @@ function(Str, Templates, Notification, I18n) {
         el('tagrep-carousel-title').textContent = cat.icon + '  ' + cat.label;
 
         var highlightTimes = null;
+        var highlightSource = null;
         var note = '';
 
         if (cat.source === 'event') {
+            highlightSource = cat.event_type;
             highlightTimes = currentAttempt.events
                 .filter(function(e) {return e.type === cat.event_type;})
                 .map(function(e) {return e.time;});
@@ -662,7 +675,7 @@ function(Str, Templates, Notification, I18n) {
                 : (S.report_scan_no_video);
         }
 
-        renderCarousel(highlightTimes, note);
+        renderCarousel(highlightTimes, note, highlightSource);
     }
 
     /**
