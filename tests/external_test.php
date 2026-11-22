@@ -71,6 +71,35 @@ final class external_test extends \advanced_testcase {
     }
 
     /**
+     * The service says whether the event was stored: repeats inside the window and events over the
+     * cap are refused (the browser then takes no screenshot).
+     */
+    public function test_stored_flag_cap_and_repeat_window(): void {
+        global $DB;
+        [$student, $quiz, $attempt] = $this->fixture();
+        set_config('maxevents', 3, 'quizaccess_tagproctoring');
+        set_config('maxevents_per_hour', 0, 'quizaccess_tagproctoring');
+        set_config('event_dedupe_seconds', 60, 'quizaccess_tagproctoring');
+
+        $first = log_event::execute($quiz->cmid, $attempt->id, 'copypaste', 'copy');
+        $this->assertTrue($first['stored']);
+        $this->assertSame('', $first['reason']);
+
+        $repeat = log_event::execute($quiz->cmid, $attempt->id, 'copypaste', 'paste');
+        $this->assertFalse($repeat['stored']);
+        $this->assertSame('repeat', $repeat['reason']);
+        $this->assertEquals(1, $DB->count_records('quizaccess_tagproctoring_events', ['attemptid' => $attempt->id]));
+
+        set_config('event_dedupe_seconds', 0, 'quizaccess_tagproctoring');
+        $this->assertTrue(log_event::execute($quiz->cmid, $attempt->id, 'tabswitch')['stored']);
+        $this->assertTrue(log_event::execute($quiz->cmid, $attempt->id, 'windowblur')['stored']);
+        $over = log_event::execute($quiz->cmid, $attempt->id, 'contextmenu');
+        $this->assertFalse($over['stored']);
+        $this->assertSame('cap', $over['reason']);
+        $this->assertEquals(3, $DB->count_records('quizaccess_tagproctoring_events', ['attemptid' => $attempt->id]));
+    }
+
+    /**
      * Both external APIs reject an owned attempt paired with another quiz.
      */
     public function test_foreign_quiz_attempt(): void {
