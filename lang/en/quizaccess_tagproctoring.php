@@ -83,6 +83,7 @@ $string['error_media_unavailable'] = 'Media devices are not available in this br
 $string['error_no_idphoto'] = 'No ID photo file received';
 $string['error_no_screenshot'] = 'No screenshot received';
 $string['error_no_selfie'] = 'No selfie file received';
+$string['error_scan_locked'] = 'Your readiness check is already complete and linked to an attempt. A new recording is only possible when a teacher requests a new check or before a new attempt.';
 $string['error_no_video'] = 'No video file received';
 $string['error_upload_too_large'] = 'The file is larger than this server accepts (limit {$a}). Ask your administrator to raise the PHP upload_max_filesize and post_max_size settings.';
 $string['event_cameradisabled'] = 'Camera disabled';

@@ -61,6 +61,24 @@ class observer {
     }
 
     /**
+     * An attempt has started: link the readiness evidence to it and consume a teacher-granted new check.
+     *
+     * @param \mod_quiz\event\attempt_started $event Event.
+     */
+    public static function attempt_started(\mod_quiz\event\attempt_started $event): void {
+        global $DB;
+        $attemptid = (int) $event->objectid;
+        $userid = (int) $event->relateduserid;
+        // Moodle does not put the quiz id in this event's data: read it from the attempt.
+        $quizid = (int) ($event->other['quizid'] ?? 0)
+            ?: (int) $DB->get_field('quiz_attempts', 'quiz', ['id' => $attemptid]);
+        if (!$quizid || !$userid) {
+            return;
+        }
+        scan_record::mark_used($quizid, $userid, $attemptid);
+    }
+
+    /**
      * Fires when a quiz attempt is deleted (teacher/admin, quiz results page).
      *
      * The room scan, selfie and ID photo belong to the user and quiz, not to the attempt, so

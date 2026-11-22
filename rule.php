@@ -356,6 +356,27 @@ class quizaccess_tagproctoring extends quizaccess_tagproctoring_parent_class_ali
     }
 
     /**
+     * The readiness check passed and the attempt is starting: lock the evidence to it.
+     *
+     * @param int|null $attemptid Current attempt id, null when the attempt is about to be created.
+     */
+    public function notify_preflight_check_passed($attemptid) {
+        global $USER;
+
+        if ($this->quizobj->is_preview_user() || is_siteadmin($USER)) {
+            return;
+        }
+        if (has_capability('quizaccess/tagproctoring:bypassproctoring', $this->quizobj->get_context())) {
+            return;
+        }
+        \quizaccess_tagproctoring\local\scan_record::mark_used(
+            (int) $this->quizobj->get_quiz()->id,
+            (int) $USER->id,
+            (int) $attemptid
+        );
+    }
+
+    /**
      * Setup attempt page JS.
      *
      * @param moodle_page $page
