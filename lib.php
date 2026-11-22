@@ -107,6 +107,7 @@ function quizaccess_tagproctoring_timing_defaults(): array {
         'face_alert_cooldown' => 30,
         'devtools_check_interval' => 10,
         'multiplescreen_wait' => 300,
+        'event_dedupe_seconds' => 5,
         'screenshot_width' => 960,
         'webcam_width' => 480,
         'screenshot_quality' => 55,

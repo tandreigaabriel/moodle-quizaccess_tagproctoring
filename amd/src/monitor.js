@@ -83,7 +83,9 @@ function(Ajax, I18n, Templates, Notification) {
     // Screenshot rate-limiting: enforce a minimum gap between uploads and prevent
     // concurrent requests. With 800+ simultaneous students this avoids server overload.
     var lastScreenshotSent = 0;
-    var screenshotInFlight = false;
+    var screenshotInFlight = false;  // a periodic upload is running
+    var evidenceQueue = [];           // frames of stored events waiting for the minimum gap
+    var evidenceSending = false;      // an event-evidence upload is running
 
     /**
      * Detect the current browser name and version from the user-agent string.
@@ -125,7 +127,7 @@ function(Ajax, I18n, Templates, Notification) {
      * @param {string} detail    Optional detail string.
      */
     function logEvent(eventtype, detail) {
-        Ajax.call([{
+        return Ajax.call([{
             methodname: "quizaccess_tagproctoring_log_event",
             args: {
                 cmid:      cfg.cmid,
@@ -133,7 +135,43 @@ function(Ajax, I18n, Templates, Notification) {
                 eventtype: eventtype,
                 detail:    detail || ""
             }
-        }]);
+        }])[0];
+    }
+
+    /**
+     * Whether the server stored the event (log_event answers stored:false when the per-attempt
+     * cap is reached or the same event repeats inside "Same event repeat window").
+     *
+     * @param {Object} r Response of the log_event web service.
+     * @returns {boolean}
+     */
+    function eventStored(r) {
+        return !!(r && r.stored === true);
+    }
+
+    /**
+     * Log an event and take its evidence screenshot only if the server stored the event (not
+     * refused by the per-attempt cap or the "Same event repeat window"), so the report never
+     * shows a picture without its event.
+     *
+     * @param {string} eventtype Short event-type token (also the screenshot source).
+     * @param {string} detail    Optional detail string.
+     */
+    function logEventWithEvidence(eventtype, detail) {
+        // The frame is grabbed now, at the moment of the event; it is uploaded only once the
+        // server confirms the event was stored.
+        var frame = evidenceWanted(eventtype) ? grabFrame(eventtype) : null;
+        logEvent(eventtype, detail).then(function(r) {
+            if (frame && eventStored(r)) {
+                queueEvidence(frame, eventtype);
+            }
+            return null;
+        }).catch(function() {
+            // The event call itself failed (network): keep the picture rather than lose the moment.
+            if (frame) {
+                queueEvidence(frame, eventtype);
+            }
+        });
     }
 
     /**
@@ -242,14 +280,13 @@ function(Ajax, I18n, Templates, Notification) {
         // Detect when the student stops sharing (clicks "Stop sharing" in browser UI).
         stream.getTracks().forEach(function(track) {
             track.addEventListener('ended', function() {
-                logEvent('screensharestop', I18n.get('ui_screen_share_stream_ended_during_exam'));
                 updateStatusScreen(false);
                 if (screenVideo && screenVideo.parentNode) {
                     screenVideo.parentNode.removeChild(screenVideo);
                 }
                 screenVideo = null;
                 // The shared screen is gone — keep a webcam frame of who is at the desk right now.
-                captureScreenshot('screensharestop');
+                logEventWithEvidence('screensharestop', I18n.get('ui_screen_share_stream_ended_during_exam'));
                 showScreenShareStopOverlay();
             });
         });
@@ -282,44 +319,18 @@ function(Ajax, I18n, Templates, Notification) {
     }
 
     /**
-     * Capture a screenshot and upload it.
+     * Draw the evidence frame for a trigger into a new canvas, at this very moment: the shared
+     * screen for screen events, the webcam for face / periodic / share-stopped events, and the
+     * last cached frame when both videos are paused (tab just hidden).
      *
-     * Prefers the live screen-share stream (shows what the student can see).
-     * Falls back to the webcam frame if screen sharing is unavailable.
-     * Falls back to the last cached frame if live videos are temporarily paused.
-     * Only called on suspicious events — there are no periodic automatic shots.
-     *
-     * @param {string} [trigger] Source label: 'tabswitch', 'windowblur', 'faceturn', etc.
-     * @returns {boolean} True when a frame was captured and the upload started.
+     * @param {string} trigger Screenshot source: 'tabswitch', 'faceaway', 'periodic', etc.
+     * @returns {HTMLCanvasElement|null} Null when nothing can be drawn yet.
      */
-    function captureScreenshot(trigger) {
-        if (!cfg.enablescreenshots) {
-            return false;
-        }
-        // Admin setting "Screenshot on these events" (cfg.screenshotEvents); periodic captures are
-        // governed by "Screenshot interval" instead.
-        var allowed = (cfg.screenshotEvents || []).concat(['periodic']);
-        if (allowed.indexOf(trigger) === -1) {
-            return false;
-        }
-        // Rate limit (admin "Minimum seconds between screenshots"): skip if an upload is already
-        // in-flight or the previous one was sent too recently. This prevents tab-switch +
-        // window-blur firing two concurrent uploads, and stops burst overload when hundreds of
-        // students trigger events simultaneously.
-        // A periodic capture never blocks an event capture: the gap for events is measured
-        // from the previous event capture only (the server applies the same rule).
-        var minGapMs = (parseInt(cfg.screenshotMinGap, 10) || 2) * 1000;
-        var isPeriodic = trigger === 'periodic';
-        var lastRelevant = isPeriodic ? Math.max(lastScreenshotSent, lastEventShotSent) : lastEventShotSent;
-        if (screenshotInFlight || (Date.now() - lastRelevant) < minGapMs) {
-            return false;
-        }
+    function grabFrame(trigger) {
         var canvas = document.createElement('canvas');
-
-        // Face-turn events capture the webcam feed — invigilators need to see the
-        // student's face to understand why the alert fired, not the screen content.
-        // All other events (tab switch, window blur, etc.) prefer the screen-share
-        // stream so the invigilator can see what the student switched to.
+        // Face events capture the webcam feed — invigilators need to see the student's face to
+        // understand why the alert fired. All other events prefer the screen-share stream so the
+        // invigilator can see what the student switched to.
         var wantWebcam = ['faceaway', 'multiplefaces', 'faceturn', 'periodic', 'screensharestop'].indexOf(trigger) !== -1;
         if (!wantWebcam && screenVideo && screenVideo.readyState >= 2 && screenVideo.videoWidth > 0) {
             var w = screenVideo.videoWidth;
@@ -330,22 +341,33 @@ function(Ajax, I18n, Templates, Notification) {
             canvas.height = Math.round(h * scale);
             canvas.getContext('2d').drawImage(screenVideo, 0, 0, canvas.width, canvas.height);
         } else if (liveVideo && liveVideo.readyState >= 2) {
-            // Webcam frame — used for face events (evidence of who is in front of the
-            // camera) and as fallback when screen share is unavailable.
+            // Webcam frame — evidence of who is in front of the camera, and the fallback when
+            // screen share is unavailable.
             canvas.width  = wantWebcam ? T.webcamWidth : 256;
             canvas.height = Math.round(canvas.width * 3 / 4);
             canvas.getContext('2d').drawImage(liveVideo, 0, 0, canvas.width, canvas.height);
         } else if (lastFrameCanvas && lastFrameCanvas.width > 0) {
-            // Both live videos are paused (e.g. tab just switched) — use the last cached frame.
-            canvas = lastFrameCanvas;
+            // Both live videos are paused — copy the last cached frame (the cache keeps changing).
+            canvas.width  = lastFrameCanvas.width;
+            canvas.height = lastFrameCanvas.height;
+            canvas.getContext('2d').drawImage(lastFrameCanvas, 0, 0);
         } else {
-            return false;
+            return null;
         }
+        return canvas;
+    }
 
-        screenshotInFlight = true;
+    /**
+     * Upload a frame as JPEG to screenshot_upload.php.
+     *
+     * @param {HTMLCanvasElement} canvas  Frame to send.
+     * @param {string}            trigger Screenshot source.
+     * @param {Function}          done    Called once the request has finished (success or not).
+     */
+    function uploadFrame(canvas, trigger, done) {
         canvas.toBlob(function(blob) {
             if (!blob) {
-                screenshotInFlight = false;
+                done();
                 return;
             }
             var fd = new FormData();
@@ -359,33 +381,114 @@ function(Ajax, I18n, Templates, Notification) {
                 body: fd,
                 credentials: 'same-origin'
             }).then(function() {
-                lastScreenshotSent = Date.now();
-                if (!isPeriodic) {
-                    lastEventShotSent = lastScreenshotSent;
-                }
-                screenshotInFlight = false;
-                if (isPeriodic) {
-                    periodicShots++;
-                }
+                done();
+                return null;
             }).catch(function() {
-                screenshotInFlight = false;
+                done();
             });
         }, 'image/jpeg', T.screenshotQuality / 100);
+    }
+
+    /**
+     * Admin "Minimum seconds between screenshots", in milliseconds.
+     *
+     * @returns {number}
+     */
+    function minGapMs() {
+        return (parseInt(cfg.screenshotMinGap, 10) || 2) * 1000;
+    }
+
+    /**
+     * Queue the evidence frame of a stored event. Frames are sent one at a time, at least the
+     * admin minimum gap after the previous event capture (+0.5 s so the server's whole-second
+     * check agrees): the gap paces the uploads instead of dropping them, so every stored event
+     * keeps its picture even when two events fire within a second (right click, then copy).
+     *
+     * @param {HTMLCanvasElement} canvas  Frame grabbed at event time.
+     * @param {string}            trigger Event type, also the screenshot source.
+     */
+    function queueEvidence(canvas, trigger) {
+        evidenceQueue.push({canvas: canvas, trigger: trigger});
+        pumpEvidenceQueue();
+    }
+
+    /**
+     * Send the next queued evidence frame when the gap allows.
+     */
+    function pumpEvidenceQueue() {
+        if (evidenceSending || !evidenceQueue.length) {
+            return;
+        }
+        var wait = lastEventShotSent ? (lastEventShotSent + minGapMs() + 500 - Date.now()) : 0;
+        if (wait > 0) {
+            setTimeout(pumpEvidenceQueue, wait);
+            return;
+        }
+        evidenceSending = true;
+        var item = evidenceQueue.shift();
+        uploadFrame(item.canvas, item.trigger, function() {
+            lastEventShotSent = Date.now();
+            lastScreenshotSent = lastEventShotSent;
+            evidenceSending = false;
+            pumpEvidenceQueue();
+        });
+    }
+
+    /**
+     * Periodic capture ("Screenshot interval"): take and upload a webcam frame now, unless a
+     * capture is in flight or the last capture of any kind is closer than the minimum gap
+     * (a periodic frame is a timeline sample, so skipping one is fine).
+     *
+     * @returns {boolean} True when a frame was captured and the upload started.
+     */
+    function capturePeriodic() {
+        if (!cfg.enablescreenshots) {
+            return false;
+        }
+        if (screenshotInFlight || evidenceSending ||
+                (Date.now() - Math.max(lastScreenshotSent, lastEventShotSent)) < minGapMs()) {
+            return false;
+        }
+        var canvas = grabFrame('periodic');
+        if (!canvas) {
+            return false;
+        }
+        screenshotInFlight = true;
+        uploadFrame(canvas, 'periodic', function() {
+            lastScreenshotSent = Date.now();
+            screenshotInFlight = false;
+            periodicShots++;
+        });
         return true;
+    }
+
+    /**
+     * Whether the admin ticked this event under "Screenshot on these events".
+     *
+     * @param {string} eventtype Event type.
+     * @returns {boolean}
+     */
+    function evidenceWanted(eventtype) {
+        return !!cfg.enablescreenshots && (cfg.screenshotEvents || []).indexOf(eventtype) !== -1;
     }
 
     /**
      * Screen evidence for the "second screen" event. The overlay appears at session start,
      * before the student has shared the screen, so wait for the screen-share stream (every
      * 2 s, up to "Second-screen capture wait") and capture the shared monitor; if it never comes, fall back to
-     * whatever captureScreenshot() can get (webcam). The event itself is already logged.
+     * whatever grabFrame() can get (webcam). The event itself is already stored.
      *
      * @param {number} [left] Remaining attempts.
      */
     function captureMultipleScreensEvidence(left) {
+        if (!evidenceWanted('multiplescreen')) {
+            return;
+        }
         var remaining = (left === undefined) ? Math.ceil(T.multipleScreenWait / 2) : left;
         var screenReady = screenVideo && screenVideo.readyState >= 2 && screenVideo.videoWidth > 0;
-        if ((screenReady || remaining <= 0) && captureScreenshot('multiplescreen')) {
+        var frame = (screenReady || remaining <= 0) ? grabFrame('multiplescreen') : null;
+        if (frame) {
+            queueEvidence(frame, 'multiplescreen');
             return;
         }
         if (remaining <= 0 && !screenReady) {
@@ -444,8 +547,7 @@ function(Ajax, I18n, Templates, Notification) {
                         if (nowAway - lastNoFaceShot > T.faceAlertCooldown * 1000) {
                             lastNoFaceShot = nowAway;
                             noFaceCount = 0;
-                            logEvent('faceaway', I18n.get('ui_face_not_visible_for_seconds', T.faceAwaySeconds));
-                            captureScreenshot('faceaway');
+                            logEventWithEvidence('faceaway', I18n.get('ui_face_not_visible_for_seconds', T.faceAwaySeconds));
                         }
                     }
                     return;
@@ -461,8 +563,7 @@ function(Ajax, I18n, Templates, Notification) {
                             Date.now() - lastMultiFaceShot > T.faceAlertCooldown * 1000) {
                         lastMultiFaceShot = Date.now();
                         multiFaceCount = 0;
-                        logEvent('multiplefaces', I18n.get('ui_faces_visible_in_the_camera', faces.length));
-                        captureScreenshot('multiplefaces');
+                        logEventWithEvidence('multiplefaces', I18n.get('ui_faces_visible_in_the_camera', faces.length));
                     }
                     return;
                 }
@@ -484,8 +585,7 @@ function(Ajax, I18n, Templates, Notification) {
                             Date.now() - lastFaceTurnShot > T.faceAlertCooldown * 1000) {
                         lastFaceTurnShot = Date.now();
                         faceTurnCount = 0;
-                        logEvent('faceturn', I18n.get('ui_face_turned_away_for_seconds', T.faceTurnSeconds));
-                        captureScreenshot('faceturn');
+                        logEventWithEvidence('faceturn', I18n.get('ui_face_turned_away_for_seconds', T.faceTurnSeconds));
                     }
                 } else {
                     faceTurnCount = 0;
@@ -668,8 +768,14 @@ function(Ajax, I18n, Templates, Notification) {
         if (multiScreenOverlay) {
             return;
         }
-        logEvent("multiplescreen", "window.screen.isExtended = true");
-        captureMultipleScreensEvidence();
+        logEvent("multiplescreen", "window.screen.isExtended = true").then(function(r) {
+            if (eventStored(r)) {
+                captureMultipleScreensEvidence();
+            }
+            return null;
+        }).catch(function() {
+            return null;
+        });
 
         var overlay = document.createElement('div');
         overlay.id = 'tagproctor-ms-overlay';
@@ -734,8 +840,7 @@ function(Ajax, I18n, Templates, Notification) {
                         return;
                     }
                     switchCount++;
-                    logEvent("tabswitch", I18n.get('ui_exam_page_was_hidden_count') + switchCount);
-                    captureScreenshot('tabswitch');
+                    logEventWithEvidence('tabswitch', I18n.get('ui_exam_page_was_hidden_count') + switchCount);
                 }, 1000);
             }
         });
@@ -750,8 +855,7 @@ function(Ajax, I18n, Templates, Notification) {
                 if (pageUnloading || document.hasFocus()) {
                     return;
                 }
-                logEvent("windowblur", I18n.get('ui_student_switched_away_from_the_exam_window'));
-                captureScreenshot('windowblur');
+                logEventWithEvidence('windowblur', I18n.get('ui_student_switched_away_from_the_exam_window'));
             }, 500);
         });
     }
@@ -761,16 +865,13 @@ function(Ajax, I18n, Templates, Notification) {
      */
     function detectCopyPaste() {
         document.addEventListener("copy", function() {
-            logEvent("copypaste", I18n.get('ui_copy_event'));
-            captureScreenshot('copypaste');
+            logEventWithEvidence('copypaste', I18n.get('ui_copy_event'));
         });
         document.addEventListener("paste", function() {
-            logEvent("copypaste", I18n.get('ui_paste_event'));
-            captureScreenshot('copypaste');
+            logEventWithEvidence('copypaste', I18n.get('ui_paste_event'));
         });
         document.addEventListener("cut", function() {
-            logEvent("copypaste", I18n.get('ui_cut_event'));
-            captureScreenshot('copypaste');
+            logEventWithEvidence('copypaste', I18n.get('ui_cut_event'));
         });
     }
 
@@ -780,8 +881,7 @@ function(Ajax, I18n, Templates, Notification) {
     function detectContextMenu() {
         document.addEventListener("contextmenu", function(e) {
             e.preventDefault();
-            logEvent("contextmenu", I18n.get('ui_right_click_detected'));
-            captureScreenshot('contextmenu');
+            logEventWithEvidence('contextmenu', I18n.get('ui_right_click_detected'));
         });
     }
 
@@ -920,8 +1020,7 @@ function(Ajax, I18n, Templates, Notification) {
                 }
                 if (enteredFullscreen) {
                     exitCount++;
-                    logEvent('fullscreenexit', I18n.get('ui_student_exited_fullscreen_count') + exitCount);
-                    captureScreenshot('fullscreenexit');
+                    logEventWithEvidence('fullscreenexit', I18n.get('ui_student_exited_fullscreen_count') + exitCount);
                 }
                 renderOverlay();
                 overlay.style.display = 'flex';
@@ -1036,10 +1135,11 @@ function(Ajax, I18n, Templates, Notification) {
             var widthDiff  = window.outerWidth - window.innerWidth;
             var heightDiff = window.outerHeight - window.innerHeight;
             if (widthDiff > threshold || heightDiff > threshold) {
-                logEvent("devtools", I18n.get('ui_possible_devtools_open_w') + widthDiff + " h=" + heightDiff);
+                var devtoolsDetail = I18n.get('ui_possible_devtools_open_w') + widthDiff + " h=" + heightDiff;
                 if (!devToolsOpen) {
-                    // One screenshot when the panel opens, not every 10 s while it stays open.
-                    captureScreenshot('devtools');
+                    // One event + screenshot when the panel opens, not on every check while it
+                    // stays open (a 3-hour exam would otherwise fill the event cap with heartbeats).
+                    logEventWithEvidence("devtools", devtoolsDetail);
                 }
                 devToolsOpen = true;
             } else {
@@ -1086,7 +1186,7 @@ function(Ajax, I18n, Templates, Notification) {
             if (cfg.enablescreenshots && periodicEvery > 0) {
                 setInterval(function() {
                     if (periodicShots < periodicMax) {
-                        captureScreenshot('periodic');
+                        capturePeriodic();
                     }
                 }, Math.max(periodicEvery, 10) * 1000);
             }

@@ -59,7 +59,7 @@ class log_event extends external_api {
      * @param  int    $attemptid Quiz attempt ID
      * @param  string $eventtype Short event-type token
      * @param  string $detail    Optional free-text detail
-     * @return array  ['status' => 'ok']
+     * @return array  ['status' => 'ok', 'stored' => bool, 'reason' => '' | 'duplicate' | 'cap' | 'repeat']
      */
     public static function execute(int $cmid, int $attemptid, string $eventtype, string $detail = ''): array {
         global $DB, $USER;
@@ -99,15 +99,17 @@ class log_event extends external_api {
                 'eventtype' => 'screenshare',
                 ])
             ) {
-                return ['status' => 'ok'];
+                return ['status' => 'ok', 'stored' => false, 'reason' => 'duplicate'];
             }
         }
 
-        // Server-side guard rails for large exams: cap rows per attempt and
-        // suppress repeated identical events fired within a few seconds.
+        // Server-side guard rails for large exams: cap rows per attempt and suppress repeated
+        // identical events fired within "Same event repeat window". The browser takes the
+        // evidence screenshot only when 'stored' is true, so there is never a picture without
+        // its event.
         $maxevents = quizaccess_tagproctoring_attempt_cap('maxevents', 500, 'maxevents_per_hour', (int) $cm->instance);
         if ($DB->count_records('quizaccess_tagproctoring_events', ['attemptid' => $attemptid]) >= $maxevents) {
-            return ['status' => 'ok'];
+            return ['status' => 'ok', 'stored' => false, 'reason' => 'cap'];
         }
 
         $now = time();
@@ -117,8 +119,8 @@ class log_event extends external_api {
               WHERE attemptid = ? AND eventtype = ?',
             [$attemptid, $eventtype]
         );
-        if ($lastsameevent && ($now - (int) $lastsameevent) < 5) {
-            return ['status' => 'ok'];
+        if ($lastsameevent && ($now - (int) $lastsameevent) < quizaccess_tagproctoring_timing('event_dedupe_seconds')) {
+            return ['status' => 'ok', 'stored' => false, 'reason' => 'repeat'];
         }
 
         $DB->insert_record('quizaccess_tagproctoring_events', (object) [
@@ -130,7 +132,7 @@ class log_event extends external_api {
             'detail'      => $detail,
         ]);
 
-        return ['status' => 'ok'];
+        return ['status' => 'ok', 'stored' => true, 'reason' => ''];
     }
 
     /**
@@ -141,6 +143,8 @@ class log_event extends external_api {
     public static function execute_returns(): external_single_structure {
         return new external_single_structure([
             'status' => new external_value(PARAM_TEXT, 'ok'),
+            'stored' => new external_value(PARAM_BOOL, 'Whether the event was stored (false: duplicate, cap or repeat)'),
+            'reason' => new external_value(PARAM_ALPHA, 'Why it was not stored, empty when stored'),
         ]);
     }
 }

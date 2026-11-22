@@ -116,7 +116,7 @@ licence key for that site.
 | Enable room scan            | Master switch for the room scan wizard step                             |
 | Enable screenshots          | Master switch for in-exam screenshot capture                            |
 | Screenshot on these events  | Which suspicious events take a screenshot (default: all)                |
-| Minimum seconds between screenshots | Rate limit between event captures, browser + server (default: 2); periodic captures never block an event capture |
+| Minimum seconds between screenshots | Spacing between event captures, browser + server (default: 2): the frame is grabbed at the moment of the event and queued, so the gap paces uploads instead of dropping evidence; periodic captures never block an event capture |
 | Enable event logging        | Master switch for in-exam event tracking                                |
 | Data retention period       | Days before scan videos and screenshots are purged (default: 30)        |
 | Screenshot interval         | Seconds between periodic webcam captures; 0 = off (default), min 10    |
@@ -125,12 +125,37 @@ licence key for that site.
 | Flagged object types        | One COCO-SSD class per line that triggers a suspicious flag             |
 | Minimum detections          | Intervals (~1 s) an object must be seen in before it counts (default: 3)|
 | Face-turn sensitivity       | Nose offset / eye distance above which the head counts as turned (0.30)|
-| Timings and limits          | Face check interval (3 s), face away after (9 s), face turned after (9 s), second person after (6 s), face alert cooldown (30 s), DevTools check interval (10 s), second-screen capture wait (300 s), screen capture width (960 px), webcam capture width (480 px), JPEG quality (55), max event screenshots per attempt (0 = Max event logs), max event logs per exam hour (200), max periodic screenshots per exam hour (120) — for quizzes with a time limit the caps become max(absolute, per hour x hours) |
+| Timings and limits          | Face check interval (3 s), face away after (9 s), face turned after (9 s), second person after (6 s), face alert cooldown (30 s), DevTools check interval (10 s), second-screen capture wait (300 s), same event repeat window (5 s), screen capture width (960 px), webcam capture width (480 px), JPEG quality (55), max event screenshots per attempt (0 = Max event logs), max event logs per exam hour (200), max periodic screenshots per exam hour (120) — for quizzes with a time limit the caps become max(absolute, per hour x hours) |
 | High risk threshold         | Risk score at or above which an attempt is marked High (default: 60)    |
 | Medium risk threshold       | Score at or above which an attempt is marked Needs Review (default: 20) |
 | Email alerts                | Enable post-attempt alert emails                                        |
 | Alert recipients            | Comma-separated email addresses; defaults to quiz teachers when empty   |
 | Object storage (S3)         | Enable, endpoint URL, region, bucket, access key, secret, path-style, key prefix — see below |
+
+### Sizing the limits for your exams
+
+Nothing is hard-coded: the monitor stops **storing** evidence for an attempt once a cap is reached (the exam itself continues), so size the caps from your longest exam, not from the default. A screenshot is only stored together with its event: if the event cap is reached, or the same event repeats inside the "Same event repeat window", no picture is taken either.
+
+**How the caps work**
+
+- Quiz **with a time limit**: cap = the larger of the absolute value and `per exam hour x hours` (hours rounded up). Defaults: events 500 absolute / 200 per hour; event screenshots = the event cap; periodic screenshots 20 absolute / 120 per hour (one every 30 s).
+- Quiz **without a time limit**: only the absolute values apply - set them for the longest session you expect (rule of thumb: 200 events per hour).
+
+| Exam length (time limit) | Hours used | Event cap (500 / 200 per h) | Periodic cap, interval 30 s (20 / 120 per h) |
+| ------------------------ | ---------- | --------------------------- | -------------------------------------------- |
+| 45 min                   | 1          | 500                         | 120                                          |
+| 125 min                  | 3          | 600                         | 360                                          |
+| 3 h                      | 3          | 600                         | 360                                          |
+| 4 h                      | 4          | 800                         | 480                                          |
+
+**Recommended set-up for 2-3 hour exams**
+
+1. Quiz settings: give the quiz a time limit (the caps scale from it) and set "Layout → New page: Never, all questions on one page" so screen sharing is requested once.
+2. "Screenshot on these events": tick everything you want evidence for (default: all); "Minimum seconds between screenshots": 2.
+3. "Max event logs per attempt" 500 and "per exam hour" 200 cover a 3-hour exam (600). Raise the per-hour value if your students generate more alerts (e.g. many face-away alerts when they read printed material - or raise "Face away after" to 15-20 s instead).
+4. Periodic screenshots: leave "Screenshot interval" at 0 unless you need a timeline; 60 s with 60 per hour is a good compromise for long exams.
+5. "Data retention period": at least the length of your appeal window (default 30 days); evidence is deleted from Moodle **and** from the S3 bucket after that.
+6. Storage (measured on real hardware): a screen capture (960 px, quality 55) is roughly 25-100 KB depending on what is on the screen, a webcam capture (480 px) 10-30 KB, a 45-second room scan 3-6 MB. Example: 300 students x 3 h with ~20 events each ~ 300 x 20 x 50 KB ~ 0.3 GB per exam plus ~1.5 GB of room scans; with periodic captures every 30 s add 360 x 15 KB ~ 5 MB per student. Use the S3 option for anything beyond a few hundred students.
 
 ### Object storage (S3-compatible)
 
