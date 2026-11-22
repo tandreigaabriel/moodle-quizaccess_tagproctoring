@@ -283,20 +283,22 @@ function(Ajax, I18n, Templates, Notification) {
      * Only called on suspicious events — there are no periodic automatic shots.
      *
      * @param {string} [trigger] Source label: 'tabswitch', 'windowblur', 'faceturn', etc.
+     * @returns {boolean} True when a frame was captured and the upload started.
      */
     function captureScreenshot(trigger) {
         if (!cfg.enablescreenshots) {
-            return;
+            return false;
         }
-        var allowed = ['tabswitch', 'windowblur', 'contextmenu', 'faceaway', 'multiplefaces', 'faceturn', 'periodic'];
+        var allowed = ['tabswitch', 'windowblur', 'contextmenu', 'faceaway', 'multiplefaces', 'faceturn', 'periodic',
+            'multiplescreen'];
         if (allowed.indexOf(trigger) === -1) {
-            return;
+            return false;
         }
         // Rate limit: skip if an upload is already in-flight or was sent less than 5 s ago.
         // This prevents tab-switch + window-blur firing two concurrent uploads, and stops
         // burst overload when hundreds of students trigger events simultaneously.
         if (screenshotInFlight || (Date.now() - lastScreenshotSent) < 5000) {
-            return;
+            return false;
         }
         var canvas = document.createElement('canvas');
 
@@ -304,7 +306,7 @@ function(Ajax, I18n, Templates, Notification) {
         // student's face to understand why the alert fired, not the screen content.
         // All other events (tab switch, window blur, etc.) prefer the screen-share
         // stream so the invigilator can see what the student switched to.
-        var wantWebcam = ['faceaway', 'multiplefaces', 'faceturn', 'periodic'].indexOf(trigger) !== -1;
+        var wantWebcam = ['faceaway', 'multiplefaces', 'faceturn', 'periodic', 'multiplescreen'].indexOf(trigger) !== -1;
         if (!wantWebcam && screenVideo && screenVideo.readyState >= 2 && screenVideo.videoWidth > 0) {
             var w = screenVideo.videoWidth;
             var h = screenVideo.videoHeight;
@@ -323,7 +325,7 @@ function(Ajax, I18n, Templates, Notification) {
             // Both live videos are paused (e.g. tab just switched) — use the last cached frame.
             canvas = lastFrameCanvas;
         } else {
-            return;
+            return false;
         }
 
         screenshotInFlight = true;
@@ -352,6 +354,24 @@ function(Ajax, I18n, Templates, Notification) {
                 screenshotInFlight = false;
             });
         }, 'image/jpeg', 0.55);
+        return true;
+    }
+
+    /**
+     * Webcam evidence for the "second screen" event. The overlay appears at session start,
+     * often before the webcam stream is ready, so retry every 2 s for up to 30 s until a
+     * frame could be captured (the event itself is already logged).
+     *
+     * @param {number} [left] Remaining attempts.
+     */
+    function captureMultipleScreensEvidence(left) {
+        var remaining = (left === undefined) ? 15 : left;
+        if (captureScreenshot('multiplescreen') || remaining <= 0) {
+            return;
+        }
+        setTimeout(function() {
+            captureMultipleScreensEvidence(remaining - 1);
+        }, 2000);
     }
 
     /**
@@ -615,6 +635,7 @@ function(Ajax, I18n, Templates, Notification) {
             return;
         }
         logEvent("multiplescreen", "window.screen.isExtended = true");
+        captureMultipleScreensEvidence();
 
         var overlay = document.createElement('div');
         overlay.id = 'tagproctor-ms-overlay';
@@ -1043,7 +1064,12 @@ function(Ajax, I18n, Templates, Notification) {
 
             createStatusBar();
             startWebcam();
-            enforceFullscreen();
+            // A screen-share stream cannot survive a page load, so every quiz page would ask the
+            // student to pick the screen again. The summary page ("Submit all and finish") keeps
+            // the webcam and event logging but does not re-ask for full screen + screen share.
+            if (document.body.id !== 'page-mod-quiz-summary') {
+                enforceFullscreen();
+            }
             detectMultipleScreens();
             detectScreenShare();
             detectTabSwitch();

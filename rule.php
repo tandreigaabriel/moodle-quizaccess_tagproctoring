@@ -73,6 +73,12 @@ class quizaccess_tagproctoring extends quizaccess_tagproctoring_parent_class_ali
 
         $mform->addElement('advcheckbox', 'tagproctoring_enabled', get_string('enableproctor', 'quizaccess_tagproctoring'));
         $mform->setDefault('tagproctoring_enabled', $existing ? (int) $existing->enabled : 0);
+        $mform->addElement(
+            'static',
+            'tagproctoring_pagesnote',
+            '',
+            get_string('enableproctor_pagesnote', 'quizaccess_tagproctoring')
+        );
 
         $mform->addElement('advcheckbox', 'tagproctoring_enableroomscan', get_string('enableroomscan', 'quizaccess_tagproctoring'));
         $mform->setDefault('tagproctoring_enableroomscan', $existing ? (int) $existing->enableroomscan : 1);

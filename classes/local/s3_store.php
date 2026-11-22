@@ -144,8 +144,8 @@ class s3_store {
      * @return string
      */
     public function object_key(int $quizid, int $userid, string $area, string $filename = ''): string {
-        $folder = ($this->prefix !== '' ? $this->prefix . '/' : '') . $quizid . '/' . $userid . '/' . $area . '/';
-        return $folder . $filename;
+        $parts = array_filter([$this->prefix, (string) $quizid, (string) $userid, $area], 'strlen');
+        return implode('/', $parts) . '/' . $filename;
     }
 
     /**
