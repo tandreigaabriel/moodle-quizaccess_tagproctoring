@@ -139,7 +139,12 @@ function quizaccess_tagproctoring_quiz_hours(int $quizid): int {
  * @param int $quizid Quiz id.
  * @return int Cap, at least 1.
  */
-function quizaccess_tagproctoring_attempt_cap(string $absolutesetting, int $absolutedefault, string $perhoursetting, int $quizid): int {
+function quizaccess_tagproctoring_attempt_cap(
+    string $absolutesetting,
+    int $absolutedefault,
+    string $perhoursetting,
+    int $quizid
+): int {
     $absolute = (int) get_config('quizaccess_tagproctoring', $absolutesetting) ?: $absolutedefault;
     $perhour = quizaccess_tagproctoring_timing($perhoursetting);
     $hours = quizaccess_tagproctoring_quiz_hours($quizid);
