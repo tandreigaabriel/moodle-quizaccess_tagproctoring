@@ -377,7 +377,9 @@ class quizaccess_tagproctoring extends quizaccess_tagproctoring_parent_class_ali
             return;
         }
 
-        $interval = (int) get_config('quizaccess_tagproctoring', 'screenshotinterval') ?: 30;
+        // Periodic captures are off (0) unless the admin sets an interval.
+        $rawinterval = get_config('quizaccess_tagproctoring', 'screenshotinterval');
+        $interval = ($rawinterval === false) ? 0 : (int) $rawinterval;
 
         $rawss = get_config('quizaccess_tagproctoring', 'enablescreenshots');
         $enablescreenshots = ($rawss !== false) ? (int) $rawss : 1;
@@ -399,6 +401,8 @@ class quizaccess_tagproctoring extends quizaccess_tagproctoring_parent_class_ali
             'enablescreenshots'   => $enablescreenshots,
             'enableevents'        => $enableevents,
             'faceTurnSensitivity' => $faceturnsensitivity,
+            'screenshotEvents'    => quizaccess_tagproctoring_screenshot_events(),
+            'screenshotMinGap'    => quizaccess_tagproctoring_screenshot_min_gap(),
             'vendorBase'          => (new moodle_url(
                 '/mod/quiz/accessrule/tagproctoring/vendor'
             ))->out(false),

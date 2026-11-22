@@ -125,6 +125,10 @@ function(Str, Templates, Notification, I18n) {
             periodic:    S.evidence_webcam_periodic,
             multiplefaces: S.evidence_webcam_multiplefaces,
             multiplescreen: S.evidence_screen_multiplescreen,
+            copypaste:   S.evidence_screen_copypaste,
+            devtools:    S.evidence_screen_devtools,
+            fullscreenexit: S.evidence_screen_fullscreenexit,
+            screensharestop: S.evidence_webcam_screensharestop,
         };
         return labels[source] || (source ? source.replace(/_/g, ' ') : (S.evidence_default));
     }
@@ -1018,6 +1022,10 @@ function(Str, Templates, Notification, I18n) {
                 {key: 'evidence_webcam_periodic',      component: comp},
                 {key: 'evidence_webcam_multiplefaces', component: comp},
                 {key: 'evidence_screen_multiplescreen', component: comp},
+                {key: 'evidence_screen_copypaste',     component: comp},
+                {key: 'evidence_screen_devtools',      component: comp},
+                {key: 'evidence_screen_fullscreenexit', component: comp},
+                {key: 'evidence_webcam_screensharestop', component: comp},
             ]).then(function(strs) {
                 var i = 0;
                 // VIOLATIONS labels.
@@ -1128,6 +1136,10 @@ function(Str, Templates, Notification, I18n) {
                 S.evidence_webcam_periodic         = strs[i++];
                 S.evidence_webcam_multiplefaces    = strs[i++];
                 S.evidence_screen_multiplescreen   = strs[i++];
+                S.evidence_screen_copypaste        = strs[i++];
+                S.evidence_screen_devtools         = strs[i++];
+                S.evidence_screen_fullscreenexit   = strs[i++];
+                S.evidence_webcam_screensharestop  = strs[i++];
 
                 renderStudentList(DATA);
             });

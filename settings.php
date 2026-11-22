@@ -180,7 +180,7 @@ if ($ADMIN->fulltree) {
         'quizaccess_tagproctoring/screenshotinterval',
         get_string('settings_screenshotinterval', 'quizaccess_tagproctoring'),
         get_string('settings_screenshotinterval_desc', 'quizaccess_tagproctoring'),
-        30,
+        0,
         PARAM_INT
     ));
 
@@ -232,6 +232,34 @@ if ($ADMIN->fulltree) {
         get_string('settings_maxevents', 'quizaccess_tagproctoring'),
         get_string('settings_maxevents_desc', 'quizaccess_tagproctoring'),
         200,
+        PARAM_INT
+    ));
+
+    // Which suspicious events take a screenshot (all by default).
+    $screenshotevents = [
+        'tabswitch', 'windowblur', 'contextmenu', 'copypaste', 'devtools', 'fullscreenexit',
+        'screensharestop', 'multiplescreen', 'faceaway', 'faceturn', 'multiplefaces',
+    ];
+    $eventoptions = [];
+    $eventdefaults = [];
+    foreach ($screenshotevents as $eventname) {
+        $eventoptions[$eventname] = get_string('violation_' . $eventname, 'quizaccess_tagproctoring');
+        $eventdefaults[$eventname] = 1;
+    }
+    $settings->add(new admin_setting_configmulticheckbox(
+        'quizaccess_tagproctoring/screenshotevents',
+        get_string('settings_screenshotevents', 'quizaccess_tagproctoring'),
+        get_string('settings_screenshotevents_desc', 'quizaccess_tagproctoring'),
+        $eventdefaults,
+        $eventoptions
+    ));
+
+    // Minimum seconds between two screenshots of one attempt (client and server).
+    $settings->add(new admin_setting_configtext(
+        'quizaccess_tagproctoring/screenshotmingap',
+        get_string('settings_screenshotmingap', 'quizaccess_tagproctoring'),
+        get_string('settings_screenshotmingap_desc', 'quizaccess_tagproctoring'),
+        2,
         PARAM_INT
     ));
 

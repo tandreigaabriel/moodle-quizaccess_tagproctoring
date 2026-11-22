@@ -77,6 +77,33 @@ function quizaccess_tagproctoring_get_report_url($cid, $cmid, $quizid) {
 }
 
 /**
+ * Suspicious events that take a screenshot, as configured by the admin ("Screenshot on these events").
+ *
+ * @return string[] Event names; all events when the setting has never been saved.
+ */
+function quizaccess_tagproctoring_screenshot_events(): array {
+    $all = [
+        'tabswitch', 'windowblur', 'contextmenu', 'copypaste', 'devtools', 'fullscreenexit',
+        'screensharestop', 'multiplescreen', 'faceaway', 'faceturn', 'multiplefaces',
+    ];
+    $raw = get_config('quizaccess_tagproctoring', 'screenshotevents');
+    if ($raw === false) {
+        return $all;
+    }
+    return array_values(array_intersect($all, array_filter(explode(',', (string) $raw))));
+}
+
+/**
+ * Minimum seconds between two screenshots of one attempt ("Minimum seconds between screenshots").
+ *
+ * @return int Seconds, at least 1.
+ */
+function quizaccess_tagproctoring_screenshot_min_gap(): int {
+    $raw = get_config('quizaccess_tagproctoring', 'screenshotmingap');
+    return max(1, ($raw === false || $raw === '') ? 2 : (int) $raw);
+}
+
+/**
  * Calculate risk score and level for one attempt.
  *
  * @param array    $eventcounts   Associative array of eventtype => count.

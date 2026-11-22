@@ -64,6 +64,7 @@ function(Ajax, I18n, Templates, Notification) {
 
     // Cached last-good frame so screenshots succeed even when live videos are paused.
     var lastFrameCanvas = null;
+    var lastEventShotSent = 0;     // time of the last event-triggered capture (periodic ones excluded)
 
     // Set to true while we are requesting our own screen share so detectScreenShare()
     // does not log it as a student-initiated share event.
@@ -243,6 +244,8 @@ function(Ajax, I18n, Templates, Notification) {
                     screenVideo.parentNode.removeChild(screenVideo);
                 }
                 screenVideo = null;
+                // The shared screen is gone — keep a webcam frame of who is at the desk right now.
+                captureScreenshot('screensharestop');
                 showScreenShareStopOverlay();
             });
         });
@@ -289,15 +292,22 @@ function(Ajax, I18n, Templates, Notification) {
         if (!cfg.enablescreenshots) {
             return false;
         }
-        var allowed = ['tabswitch', 'windowblur', 'contextmenu', 'faceaway', 'multiplefaces', 'faceturn', 'periodic',
-            'multiplescreen'];
+        // Admin setting "Screenshot on these events" (cfg.screenshotEvents); periodic captures are
+        // governed by "Screenshot interval" instead.
+        var allowed = (cfg.screenshotEvents || []).concat(['periodic']);
         if (allowed.indexOf(trigger) === -1) {
             return false;
         }
-        // Rate limit: skip if an upload is already in-flight or was sent less than 5 s ago.
-        // This prevents tab-switch + window-blur firing two concurrent uploads, and stops
-        // burst overload when hundreds of students trigger events simultaneously.
-        if (screenshotInFlight || (Date.now() - lastScreenshotSent) < 5000) {
+        // Rate limit (admin "Minimum seconds between screenshots"): skip if an upload is already
+        // in-flight or the previous one was sent too recently. This prevents tab-switch +
+        // window-blur firing two concurrent uploads, and stops burst overload when hundreds of
+        // students trigger events simultaneously.
+        // A periodic capture never blocks an event capture: the gap for events is measured
+        // from the previous event capture only (the server applies the same rule).
+        var minGapMs = (parseInt(cfg.screenshotMinGap, 10) || 2) * 1000;
+        var isPeriodic = trigger === 'periodic';
+        var lastRelevant = isPeriodic ? Math.max(lastScreenshotSent, lastEventShotSent) : lastEventShotSent;
+        if (screenshotInFlight || (Date.now() - lastRelevant) < minGapMs) {
             return false;
         }
         var canvas = document.createElement('canvas');
@@ -306,7 +316,7 @@ function(Ajax, I18n, Templates, Notification) {
         // student's face to understand why the alert fired, not the screen content.
         // All other events (tab switch, window blur, etc.) prefer the screen-share
         // stream so the invigilator can see what the student switched to.
-        var wantWebcam = ['faceaway', 'multiplefaces', 'faceturn', 'periodic'].indexOf(trigger) !== -1;
+        var wantWebcam = ['faceaway', 'multiplefaces', 'faceturn', 'periodic', 'screensharestop'].indexOf(trigger) !== -1;
         if (!wantWebcam && screenVideo && screenVideo.readyState >= 2 && screenVideo.videoWidth > 0) {
             var w = screenVideo.videoWidth;
             var h = screenVideo.videoHeight;
@@ -346,8 +356,11 @@ function(Ajax, I18n, Templates, Notification) {
                 credentials: 'same-origin'
             }).then(function() {
                 lastScreenshotSent = Date.now();
+                if (!isPeriodic) {
+                    lastEventShotSent = lastScreenshotSent;
+                }
                 screenshotInFlight = false;
-                if (trigger === 'periodic') {
+                if (isPeriodic) {
                     periodicShots++;
                 }
             }).catch(function() {
@@ -733,12 +746,15 @@ function(Ajax, I18n, Templates, Notification) {
     function detectCopyPaste() {
         document.addEventListener("copy", function() {
             logEvent("copypaste", I18n.get('ui_copy_event'));
+            captureScreenshot('copypaste');
         });
         document.addEventListener("paste", function() {
             logEvent("copypaste", I18n.get('ui_paste_event'));
+            captureScreenshot('copypaste');
         });
         document.addEventListener("cut", function() {
             logEvent("copypaste", I18n.get('ui_cut_event'));
+            captureScreenshot('copypaste');
         });
     }
 
@@ -889,6 +905,7 @@ function(Ajax, I18n, Templates, Notification) {
                 if (enteredFullscreen) {
                     exitCount++;
                     logEvent('fullscreenexit', I18n.get('ui_student_exited_fullscreen_count') + exitCount);
+                    captureScreenshot('fullscreenexit');
                 }
                 renderOverlay();
                 overlay.style.display = 'flex';
@@ -998,11 +1015,19 @@ function(Ajax, I18n, Templates, Notification) {
      */
     function detectDevTools() {
         var threshold = 160;
+        var devToolsOpen = false;
         setInterval(function() {
             var widthDiff  = window.outerWidth - window.innerWidth;
             var heightDiff = window.outerHeight - window.innerHeight;
             if (widthDiff > threshold || heightDiff > threshold) {
                 logEvent("devtools", I18n.get('ui_possible_devtools_open_w') + widthDiff + " h=" + heightDiff);
+                if (!devToolsOpen) {
+                    // One screenshot when the panel opens, not every 10 s while it stays open.
+                    captureScreenshot('devtools');
+                }
+                devToolsOpen = true;
+            } else {
+                devToolsOpen = false;
             }
         }, 10000);
     }
@@ -1031,9 +1056,9 @@ function(Ajax, I18n, Templates, Notification) {
             // see what environment the student used without reading raw user-agent strings.
             logEvent('sessionstart', detectBrowser() + ' / ' + detectOS());
 
-            // Periodic webcam evidence: admin "Screenshot interval" (seconds, minimum 10) capped by
-            // "Max screenshots per attempt". Event-triggered captures are not counted here; the
-            // server enforces the overall cap per attempt.
+            // Optional periodic webcam evidence: admin "Screenshot interval" (seconds; 0 = off,
+            // minimum 10 when on) capped by "Max screenshots per attempt". Event-triggered captures
+            // are separate and capped by "Max event logs per attempt" on the server.
             var periodicEvery = parseInt(cfg.interval, 10) || 0;
             var periodicMax = parseInt(cfg.maxscreenshots, 10) || 20;
             if (cfg.enablescreenshots && periodicEvery > 0) {

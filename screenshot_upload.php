@@ -24,6 +24,7 @@
 
 require_once(__DIR__ . '/../../../../config.php');
 require_once($CFG->dirroot . '/course/lib.php');
+require_once(__DIR__ . '/lib.php');
 
 // Prevent any PHP notices/warnings from corrupting the JSON response.
 ob_start();
@@ -56,23 +57,51 @@ try {
         exit;
     }
 
-    // Enforce the admin-configured maximum screenshots per attempt to prevent storage overload.
-    // With 500+ concurrent students each triggering events, this cap keeps server load predictable.
-    $maxshots = (int) get_config('quizaccess_tagproctoring', 'maxscreenshots') ?: 20;
-    $existingcount = $DB->count_records('quizaccess_tagproctoring_screenshots', ['attemptid' => $attemptid]);
+    // The source records what produced the screenshot: a periodic 'screen'/'webcam' capture, or the
+    // event that triggered it (tab switch, window blur, right click, face away/turn, ...). The report
+    // keys its per-shot labels off exactly these values, so the allow-list must match the monitor
+    // triggers. PARAM_ALPHA strips everything except letters — safe for use in the filename.
+    $source = optional_param('source', 'webcam', PARAM_ALPHA);
+    $periodicsources = ['webcam', 'screen', 'periodic'];
+    $allowedsources = array_merge($periodicsources, quizaccess_tagproctoring_screenshot_events());
+    if (!in_array($source, $allowedsources, true)) {
+        throw new moodle_exception('invalidparameter', 'error');
+    }
+
+    // Caps per attempt keep storage predictable with hundreds of concurrent students: periodic
+    // captures are limited by "Max screenshots per attempt"; event-triggered captures (at most one
+    // per logged event) by "Max event logs per attempt", so a long exam with periodic shots can
+    // never use up the evidence for a tab switch or a second person later on.
+    if (in_array($source, $periodicsources, true)) {
+        $maxshots = (int) get_config('quizaccess_tagproctoring', 'maxscreenshots') ?: 20;
+        [$insql, $inparams] = $DB->get_in_or_equal($periodicsources, SQL_PARAMS_NAMED);
+        $existingcount = $DB->count_records_select(
+            'quizaccess_tagproctoring_screenshots',
+            "attemptid = :attemptid AND source $insql",
+            ['attemptid' => $attemptid] + $inparams
+        );
+    } else {
+        $maxshots = (int) get_config('quizaccess_tagproctoring', 'maxevents') ?: 200;
+        $existingcount = $DB->count_records('quizaccess_tagproctoring_screenshots', ['attemptid' => $attemptid]);
+    }
     if ($existingcount >= $maxshots) {
         ob_end_clean();
         echo json_encode(['status' => 'ok', 'skipped' => true]);
         exit;
     }
 
-    // Server-side rate limit: max 1 screenshot per 5 seconds per attempt.
-    // Prevents bursts even if the client throttle is bypassed (e.g. multiple tabs).
+    // Server-side rate limit (admin "Minimum seconds between screenshots"): prevents bursts even if
+    // the client throttle is bypassed (e.g. multiple tabs).
+    $mingap = quizaccess_tagproctoring_screenshot_min_gap();
+    // A periodic capture never blocks an event capture: for events only the previous event
+    // capture counts (same rule as monitor.js).
+    [$notinsql, $notinparams] = $DB->get_in_or_equal($periodicsources, SQL_PARAMS_NAMED, 'p', false);
     $lastshot = $DB->get_field_sql(
-        'SELECT MAX(timecreated) FROM {quizaccess_tagproctoring_screenshots} WHERE attemptid = ?',
-        [$attemptid]
+        'SELECT MAX(timecreated) FROM {quizaccess_tagproctoring_screenshots} WHERE attemptid = :attemptid'
+            . (in_array($source, $periodicsources, true) ? '' : " AND source $notinsql"),
+        ['attemptid' => $attemptid] + $notinparams
     );
-    if ($lastshot && (time() - $lastshot) < 5) {
+    if ($lastshot && (time() - $lastshot) < $mingap) {
         ob_end_clean();
         echo json_encode(['status' => 'ok', 'skipped' => true, 'reason' => 'rate_limit']);
         exit;
@@ -81,18 +110,6 @@ try {
     \quizaccess_tagproctoring\local\media_validator::validate_image($_FILES['screenshot']);
 
     $fs = get_file_storage();
-    // The source records what produced the screenshot: a periodic 'screen'/'webcam' capture, or the
-    // event that triggered it (tab switch, window blur, right click, face away/turn). The report keys
-    // its per-shot labels off exactly these values, so the allow-list must match the monitor triggers.
-    // PARAM_ALPHA strips everything except letters — safe for use in the filename.
-    $source = optional_param('source', 'webcam', PARAM_ALPHA);
-    $allowedsources = [
-        'webcam', 'screen', 'tabswitch', 'windowblur', 'contextmenu',
-        'faceaway', 'faceturn', 'multiplefaces', 'periodic', 'multiplescreen',
-    ];
-    if (!in_array($source, $allowedsources, true)) {
-        throw new moodle_exception('invalidparameter', 'error');
-    }
     // Append a short uniqid suffix so concurrent uploads in the same second never collide.
     $filename = $source . '_' . $attemptid . '_' . $USER->id . '_' . time() . '_' . substr(uniqid(), -8) . '.jpg';
 
