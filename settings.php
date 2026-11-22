@@ -24,6 +24,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+require_once(__DIR__ . '/lib.php'); // The admin tree includes this file without loading the plugin's lib.php.
+
 if (!class_exists('admin_setting_tagproctoring_licensekey')) {
     /**
      * Custom admin setting for the license key.
