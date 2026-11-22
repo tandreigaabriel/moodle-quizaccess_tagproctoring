@@ -513,8 +513,9 @@ function(Str, Templates, Notification, I18n) {
     /**
      * Render the screenshot carousel for the current attempt.
      * Thumbnails within 90 s of any time in highlightTimes, or whose source equals
-     * highlightSource (e.g. a second-screen capture taken once sharing started, minutes
-     * after the event), receive a highlight border.
+     * highlightSource, receive a highlight border; when the category has screenshots of
+     * its own source (e.g. a second-screen capture taken once sharing started, minutes
+     * after the event), only those are highlighted.
      * Thumbnails within 5 s of any violation event receive a red dot.
      * Clicking a thumbnail opens the lightbox.
      *
@@ -544,15 +545,22 @@ function(Str, Templates, Notification, I18n) {
         var firstHighlightIdx = -1;
         var highlightedCount  = 0;
         var thumbnails = [];
+        // When the category's event takes its own screenshots (source = event type), show
+        // exactly those; the ±90 s window is only for events without a capture of their own.
+        var hasSourceShots = !!highlightSource && shots.some(function(s) {
+            return s.source === highlightSource;
+        });
 
         shots.forEach(function(shot, idx) {
             var d = new Date(shot.time * 1000);
             var timeStr = d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
             var srcLabel = evidenceSourceLabel(shot.source, false);
 
-            var isHighlighted = !!(highlightTimes && highlightTimes.some(function(t) {
-                return Math.abs(shot.time - t) <= 90;
-            })) || !!(highlightSource && shot.source === highlightSource);
+            var isHighlighted = hasSourceShots
+                ? shot.source === highlightSource
+                : !!(highlightTimes && highlightTimes.some(function(t) {
+                    return Math.abs(shot.time - t) <= 90;
+                }));
             var isSuspicious = allEventTimes.some(function(t) {
                 return Math.abs(shot.time - t) <= 5;
             });
