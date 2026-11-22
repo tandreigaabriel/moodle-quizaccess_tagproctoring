@@ -63,6 +63,78 @@ class scan_record {
     }
 
     /**
+     * Whether the student may record or replace readiness evidence (room scan, selfie, ID photo) now.
+     *
+     * Evidence can only be (re)recorded while the readiness check is required: no record yet, an
+     * incomplete record, a teacher-granted new check (needs_rescan), or - when the quiz asks for a new
+     * room scan before every attempt - while no attempt is in progress. A complete check that has been
+     * used for an attempt is locked, so a student cannot overwrite flagged evidence afterwards.
+     *
+     * @param int $quizid Quiz id.
+     * @param int $userid Student id.
+     * @return bool
+     */
+    public static function replacement_allowed(int $quizid, int $userid): bool {
+        global $DB;
+        $scan = $DB->get_record('quizaccess_tagproctoring_scan', ['quizid' => $quizid, 'userid' => $userid]);
+        if (!$scan) {
+            return true;
+        }
+        if (!empty($scan->needs_rescan)) {
+            return true;
+        }
+        $settings = $DB->get_record('quizaccess_tagproctoring_settings', ['quizid' => $quizid]);
+        $roomscanrequired = ($settings && isset($settings->enableroomscan)) ? (bool) $settings->enableroomscan : true;
+        $complete = (!$roomscanrequired || (string) $scan->filename !== '')
+            && (string) $scan->selfie_filename !== '' && (string) $scan->idphoto_filename !== '';
+        if (!$complete) {
+            return true;
+        }
+        if ($settings && !empty($settings->rescanperattempt)) {
+            // A fresh check is taken before every attempt: allowed until the next attempt starts.
+            return !$DB->record_exists('quiz_attempts', ['quiz' => $quizid, 'userid' => $userid, 'state' => 'inprogress']);
+        }
+        return false;
+    }
+
+    /**
+     * The readiness check has been used to start (or continue) an attempt: consume a teacher-granted
+     * new check and remember the attempt the evidence belongs to.
+     *
+     * @param int $quizid Quiz id.
+     * @param int $userid Student id.
+     * @param int $attemptid Attempt id, 0 when the attempt is only about to be created.
+     */
+    public static function mark_used(int $quizid, int $userid, int $attemptid = 0): void {
+        global $DB;
+        $scan = $DB->get_record('quizaccess_tagproctoring_scan', ['quizid' => $quizid, 'userid' => $userid]);
+        if (!$scan) {
+            return;
+        }
+        $update = (object) ['id' => $scan->id, 'needs_rescan' => 0];
+        if ($attemptid > 0) {
+            $update->attemptid = $attemptid;
+        }
+        $DB->update_record('quizaccess_tagproctoring_scan', $update);
+    }
+
+    /**
+     * Refuse the request with 403 unless the student may (re)record evidence now.
+     *
+     * @param int $quizid Quiz id.
+     * @param int $userid Student id.
+     */
+    public static function require_replacement_allowed(int $quizid, int $userid): void {
+        if (self::replacement_allowed($quizid, $userid)) {
+            return;
+        }
+        ob_end_clean();
+        http_response_code(403);
+        echo json_encode(['status' => 'error', 'message' => get_string('error_scan_locked', 'quizaccess_tagproctoring')]);
+        exit;
+    }
+
+    /**
      * Clear only the manual risk override, preserving the independent review.
      *
      * @param int $recordid Existing override record ID.

@@ -37,6 +37,40 @@ final class observer_test extends \advanced_testcase {
      * Deleting a student's attempt flags their room scan for a new readiness check,
      * without touching other students or the stored evidence.
      */
+    /**
+     * Starting an attempt links the evidence to it and consumes a granted new check.
+     */
+    public function test_attempt_started_locks_the_evidence(): void {
+        global $DB;
+        $this->resetAfterTest();
+        $this->setAdminUser();
+        $course = $this->getDataGenerator()->create_course();
+        $quiz = $this->getDataGenerator()->create_module('quiz', ['course' => $course->id]);
+        $student = $this->getDataGenerator()->create_user();
+        $DB->insert_record('quizaccess_tagproctoring_scan', (object) [
+            'quizid' => $quiz->id, 'userid' => $student->id, 'attemptid' => 0, 'timecreated' => time(),
+            'filename' => 'roomscan.webm', 'selfie_filename' => 'selfie.jpg', 'idphoto_filename' => 'id.jpg',
+            'needs_rescan' => 1,
+        ]);
+        // Like mod_quiz, do not pass the quiz id in the event data: the observer reads it from the attempt.
+        $attemptid = $DB->insert_record('quiz_attempts', (object) [
+            'quiz' => $quiz->id, 'userid' => $student->id, 'attempt' => 1, 'uniqueid' => 900042, 'layout' => '',
+            'currentpage' => 0, 'preview' => 0, 'state' => 'inprogress', 'timestart' => time(), 'timefinish' => 0,
+            'timemodified' => time(), 'timemodifiedoffline' => 0,
+        ]);
+        $event = \mod_quiz\event\attempt_started::create([
+            'objectid' => $attemptid,
+            'relateduserid' => $student->id,
+            'courseid' => $course->id,
+            'context' => \context_module::instance($quiz->cmid),
+        ]);
+        $event->trigger();
+        $scan = $DB->get_record('quizaccess_tagproctoring_scan', ['quizid' => $quiz->id, 'userid' => $student->id]);
+        $this->assertSame((int) $attemptid, (int) $scan->attemptid);
+        $this->assertSame(0, (int) $scan->needs_rescan);
+        $this->assertFalse(\quizaccess_tagproctoring\local\scan_record::replacement_allowed($quiz->id, $student->id));
+    }
+
     public function test_attempt_deleted_requires_a_new_scan(): void {
         global $DB;
         $this->resetAfterTest();

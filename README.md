@@ -66,18 +66,16 @@ TAG Proctoring is a quiz access rule plugin for Moodle that enables lightweight 
 - Browser: Google Chrome, Microsoft Edge, Brave or Opera — Chromium 100 or newer on Windows, macOS or Linux (the Window Management API is needed for multi-monitor detection). Firefox, Safari, phones and tablets are blocked with a notice.
 - PHP `upload_max_filesize` and `post_max_size` of at least 32M (a 45-second room scan is about 5–6 MB; the student sees the server limit if an upload is rejected)
 - Storage: by default all media goes through the Moodle File API (so `tool_objectfs` can offload it); alternatively enable the plugin's own "Object storage (S3)" section to keep videos and photos in an S3-compatible bucket. The retention task deletes expired and orphaned files wherever they are stored
-- A TAG Proctoring licence key for the site (60-day trial key or paid licence, see *Commercial licence*)
+- A TAG Proctoring licence key for the site, obtained through Moodle Marketplace (see *Commercial licence*)
 
 ## Commercial licence
 
-TAG Proctoring is a **commercial plugin**. The code is GPL v3 or later; using it on a site requires a
-licence key for that site.
+TAG Proctoring is a **commercial plugin sold through Moodle Marketplace**. The code is GPL v3 or later;
+using it on a site requires a licence key for that site.
 
-- **Free trial:** request a trial key at
-  [tandreig.com/request-key](https://tandreig.com/request-key?plugin=tagproctoring). Trial keys are
-  valid for 60 days.
-- **Paid licence:** one licence per Moodle site (domain), billed yearly. Current price and terms:
-  [tandreig.com/plugins/proctoring-system](https://tandreig.com/plugins/proctoring-system).
+- **Purchase:** one licence per Moodle site (domain), billed yearly, bought on the plugin's Moodle
+  Marketplace listing. The licence key is issued after the purchase and is bound to the site's domain.
+- **Trial:** a 60-day trial key can be requested from the Marketplace listing before purchasing.
 - **Without a valid key** proctoring cannot be enabled on quizzes. Quizzes themselves keep working,
   without proctoring. After a licence expires there is a seven-day grace period.
 - **What is sent to the licence service:** the site domain, the licence key and the Moodle version, to
@@ -88,8 +86,7 @@ licence key for that site.
   downloads the COCO-SSD and BlazeFace model files from Google's TensorFlow model hosting when the
   pre-exam check starts. Webcam images are analysed inside the browser and are never sent there.
 - Terms: [tandreig.com/terms-and-conditions](https://tandreig.com/terms-and-conditions) ·
-  Privacy: [tandreig.com/privacy-policy](https://tandreig.com/privacy-policy) ·
-  Support: [tandreig.com/plugins/support](https://tandreig.com/plugins/support?plugin=proctoring-system)
+  Privacy: [tandreig.com/privacy-policy](https://tandreig.com/privacy-policy)
 
 ## Source and issue tracker
 
@@ -103,7 +100,7 @@ licence key for that site.
    mod/quiz/accessrule/tagproctoring/
    ```
 2. Log in as a Moodle administrator and go to **Site administration → Notifications** to run the database upgrade. This creates the required tables.
-3. Request a trial key at **[tandreig.com/request-key](https://tandreig.com/request-key?plugin=tagproctoring)** or buy a licence (see *Commercial licence*). Then go to **Site administration → Plugins → Quiz access rules → TAG Proctoring** and paste it. The plugin contacts the activation service and stores the licence status.
+3. Enter the licence key received with your Moodle Marketplace purchase (or the trial key requested from the listing — see *Commercial licence*): go to **Site administration → Plugins → Quiz access rules → TAG Proctoring** and paste it. The plugin contacts the activation service and stores the licence status.
 4. Enable the access rule on a quiz via **Quiz settings → Extra restrictions on attempts → Enable TAG Proctoring**.
 
 ## Configuration
@@ -176,9 +173,8 @@ Nothing is hard-coded: the monitor stops **storing** evidence for an attempt onc
 ## Author & Support
 
 **Author:** Andrei Toma — [tandreig.com](https://www.tandreig.com)  
-**Plugin page:** [tandreig.com/plugins/proctoring-system](https://tandreig.com/plugins/proctoring-system)  
 **Support:** [tandreig.com/plugins/support](https://tandreig.com/plugins/support)  
-**Licence key:** [tandreig.com/request-key](https://tandreig.com/request-key?plugin=tagproctoring) — availability and terms are set by the provider
+**Licence key:** issued through Moodle Marketplace (purchase or trial request on the listing)
 
 ### v1.0.0 — 2026-07-12
 

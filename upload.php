@@ -30,15 +30,6 @@ ob_start();
 
 header('Content-Type: application/json');
 
-$logdir = $CFG->dataroot . '/quizaccess_tagproctoring/logs';
-$logfile = $logdir . '/upload.log';
-
-if (!is_dir($logdir)) {
-    make_writable_directory($logdir);
-}
-
-file_put_contents($logfile, date('[H:i:s] ') . "HIT\n", FILE_APPEND);
-
 try {
     require_login();
 
@@ -72,6 +63,7 @@ try {
 
     $context = context_module::instance($cm->id, MUST_EXIST);
     require_capability('mod/quiz:attempt', $context);
+    \quizaccess_tagproctoring\local\scan_record::require_replacement_allowed($quizid, (int) $USER->id);
     $fs = get_file_storage();
 
     $extension = \quizaccess_tagproctoring\local\media_validator::validate_video($_FILES['video']);
@@ -152,7 +144,8 @@ try {
 
     $record->scan_objects    = $scanobjects;
     $record->scan_suspicious = $scansuspicious;
-    $record->needs_rescan    = 0; // Clear any teacher-granted rescan flag.
+    // A teacher-granted new check (needs_rescan) stays set until the attempt starts, so the selfie and
+    // ID steps of the same wizard are still allowed; rule::notify_preflight_check_passed() clears it.
 
     $existingrow = $DB->get_record(
         'quizaccess_tagproctoring_scan',
@@ -178,8 +171,6 @@ try {
     ]);
 } catch (Throwable $e) {
     ob_end_clean();
-
-    file_put_contents($logfile, date('[H:i:s] ') . 'ERROR ' . get_class($e) . ': ' . $e->getMessage() . "\n", FILE_APPEND);
 
     http_response_code(500);
 

@@ -49,6 +49,7 @@ try {
     $cm = get_coursemodule_from_instance('quiz', $quizid, 0, false, MUST_EXIST);
     $context = context_module::instance($cm->id, MUST_EXIST);
     require_capability('mod/quiz:attempt', $context);
+    \quizaccess_tagproctoring\local\scan_record::require_replacement_allowed($quizid, (int) $USER->id);
 
     if (empty($_FILES['idphoto']) || !is_uploaded_file($_FILES['idphoto']['tmp_name'])) {
         http_response_code(400);
