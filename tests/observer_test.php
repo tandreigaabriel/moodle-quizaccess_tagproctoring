@@ -18,7 +18,8 @@
  * Event observer regressions.
  *
  * @package    quizaccess_tagproctoring
- * @copyright  2026 Andrei Toma
+ * @copyright  2026 TAG Digital Solutions Ltd <https://tandreig.com>
+ * @author     Andrei Toma
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -28,7 +29,8 @@ namespace quizaccess_tagproctoring;
  * Tests for the event observers.
  *
  * @package    quizaccess_tagproctoring
- * @copyright  2026 Andrei Toma
+ * @copyright  2026 TAG Digital Solutions Ltd <https://tandreig.com>
+ * @author     Andrei Toma
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers \quizaccess_tagproctoring\local\observer
  */

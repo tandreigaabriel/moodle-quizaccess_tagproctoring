@@ -17,7 +17,8 @@
  * TAG Proctoring report UI — student list, session cards, violation flags, screenshot viewer.
  *
  * @module     quizaccess_tagproctoring/report
- * @copyright  2026 Andrei Toma <https://www.tandreig.com>
+ * @copyright  2026 TAG Digital Solutions Ltd <https://tandreig.com>
+ * @author     Andrei Toma
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
