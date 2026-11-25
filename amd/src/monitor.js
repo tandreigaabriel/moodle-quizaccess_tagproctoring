@@ -17,7 +17,8 @@
  * Proctoring monitor module — handles webcam screenshots and suspicious event tracking.
  *
  * @module     quizaccess_tagproctoring/monitor
- * @copyright  2024 TAG
+ * @copyright  2026 TAG Digital Solutions Ltd <https://tandreig.com>
+ * @author     Andrei Toma
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 

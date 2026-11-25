@@ -21,7 +21,8 @@
  * and appends a colour-coded badge cell to each row.
  *
  * @module quizaccess_tagproctoring/grades_column
- * @copyright 2026 Andrei Toma <https://www.tandreig.com>
+ * @copyright  2026 TAG Digital Solutions Ltd <https://tandreig.com>
+ * @author     Andrei Toma
  * @license   https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 define(['quizaccess_tagproctoring/strings', 'core/templates', 'core/notification'], function(I18n, Templates, Notification) {

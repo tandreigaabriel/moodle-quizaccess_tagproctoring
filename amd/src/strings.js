@@ -16,7 +16,8 @@
 /**
  * Shared translation cache for proctoring UI event handlers.
  * @module quizaccess_tagproctoring/strings
- * @copyright 2026 Andrei Toma
+ * @copyright  2026 TAG Digital Solutions Ltd <https://tandreig.com>
+ * @author     Andrei Toma
  * @license https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 define(['core/str'], function(Str) {

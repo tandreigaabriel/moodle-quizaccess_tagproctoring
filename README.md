@@ -79,7 +79,7 @@ using it on a site requires a licence key for that site.
 - **Without a valid key** proctoring cannot be enabled on quizzes. Quizzes themselves keep working,
   without proctoring. After a licence expires there is a seven-day grace period.
 - **What is sent to the licence service:** the site domain, the licence key and the Moodle version, to
-  `https://www.tandreig.com/api/license/activate`, when the key is activated and once a week by a
+  `https://tandreig.com/api/license/activate`, when the key is activated and once a week by a
   scheduled task. No student data, recordings or quiz data are sent to it; all proctoring data stays
   on your Moodle site.
 - **AI models:** the TensorFlow.js libraries are bundled with the plugin, but the student's browser
@@ -172,7 +172,8 @@ Nothing is hard-coded: the monitor stops **storing** evidence for an attempt onc
 
 ## Author & Support
 
-**Author:** Andrei Toma — [tandreig.com](https://www.tandreig.com)  
+**Author:** Andrei Toma — TAG Digital Solutions Ltd (trading as TAG Web Design & Development), [tandreig.com](https://tandreig.com)  
+**Copyright:** © 2026 TAG Digital Solutions Ltd  
 **Support:** [tandreig.com/plugins/support](https://tandreig.com/plugins/support)  
 **Licence key:** issued through Moodle Marketplace (purchase or trial request on the listing)
 

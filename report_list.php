@@ -18,7 +18,8 @@
  * Report table class for TAG Proctoring quiz access rule.
  *
  * @package    quizaccess_tagproctoring
- * @copyright  2026 Andrei Toma <https://www.tandreig.com>
+ * @copyright  2026 TAG Digital Solutions Ltd <https://tandreig.com>
+ * @author     Andrei Toma
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -44,7 +45,8 @@ if (class_exists('mod_quiz\quiz_attempt')) {
  * Flexible table showing proctoring data for each completed quiz attempt.
  *
  * @package    quizaccess_tagproctoring
- * @copyright  2026 Andrei Toma <https://www.tandreig.com>
+ * @copyright  2026 TAG Digital Solutions Ltd <https://tandreig.com>
+ * @author     Andrei Toma
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class report_list extends table_sql {

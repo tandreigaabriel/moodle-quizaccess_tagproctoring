@@ -18,7 +18,8 @@
  * Admin settings for TAG Proctoring quiz access rule.
  *
  * @package    quizaccess_tagproctoring
- * @copyright  2026 Andrei Toma <https://www.tandreig.com>
+ * @copyright  2026 TAG Digital Solutions Ltd <https://tandreig.com>
+ * @author     Andrei Toma
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -34,7 +35,8 @@ if (!class_exists('admin_setting_tagproctoring_licensekey')) {
      * status badge below the input field.
      *
      * @package    quizaccess_tagproctoring
-     * @copyright  2026 Andrei Toma <https://www.tandreig.com>
+     * @copyright  2026 TAG Digital Solutions Ltd <https://tandreig.com>
+     * @author     Andrei Toma
      * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
      */
     class admin_setting_tagproctoring_licensekey extends admin_setting_configtext {

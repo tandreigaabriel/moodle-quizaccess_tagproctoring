@@ -18,7 +18,8 @@
  * Content and upload size regressions.
  *
  * @package    quizaccess_tagproctoring
- * @copyright  2026 Andrei Toma
+ * @copyright  2026 TAG Digital Solutions Ltd <https://tandreig.com>
+ * @author     Andrei Toma
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -30,7 +31,8 @@ use quizaccess_tagproctoring\task\cleanup_files;
  * Tests for the scheduled cleanup task.
  *
  * @package    quizaccess_tagproctoring
- * @copyright  2026 Andrei Toma
+ * @copyright  2026 TAG Digital Solutions Ltd <https://tandreig.com>
+ * @author     Andrei Toma
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers \quizaccess_tagproctoring\task\cleanup_files
  */

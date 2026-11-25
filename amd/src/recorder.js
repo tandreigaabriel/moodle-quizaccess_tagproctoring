@@ -17,7 +17,8 @@
  * Pre-exam wizard: room scan, selfie, ID photo, screen-share verification.
  *
  * @module     quizaccess_tagproctoring/recorder
- * @copyright  2026 Andrei Toma <https://www.tandreig.com>
+ * @copyright  2026 TAG Digital Solutions Ltd <https://tandreig.com>
+ * @author     Andrei Toma
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
